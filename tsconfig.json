@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "sourceMap": true,
+        "outDir": "src_js/"
+    },
+    "include": [
+        "src_ts/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.spec.ts"
+    ]
+    /*"files": [
+        "asm.ts",
+        "cpu.ts",
+        "ppu.ts",
+        "apu.ts",
+        "program.ts"
+    ]*/
+}
