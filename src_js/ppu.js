@@ -1,5 +1,8 @@
 var NES;
 (function (NES) {
-    NES.ppu_zero = {};
+    var PPU;
+    (function (PPU) {
+        PPU.ppu_zero = {};
+    })(PPU || (PPU = {}));
 })(NES || (NES = {}));
 //# sourceMappingURL=ppu.js.map

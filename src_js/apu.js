@@ -1,5 +1,9 @@
 var NES;
 (function (NES) {
-    NES.apu_zero = {};
+    var APU;
+    (function (APU) {
+        APU.test = 0;
+        APU.apu_zero = {};
+    })(APU || (APU = {}));
 })(NES || (NES = {}));
 //# sourceMappingURL=apu.js.map

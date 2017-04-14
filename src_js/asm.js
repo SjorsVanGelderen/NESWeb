@@ -1,5 +1,8 @@
 var NES;
 (function (NES) {
-    NES.ast_zero = [];
+    var ASM;
+    (function (ASM) {
+        ASM.ast_zero = [];
+    })(ASM || (ASM = {}));
 })(NES || (NES = {}));
 //# sourceMappingURL=asm.js.map

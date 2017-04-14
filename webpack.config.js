@@ -1,13 +1,26 @@
 const path = require("path")
-const webpack = require("webpack")
 
-module.exports = {
-    context: path.resolve(__dirname, "./src_js"),
-    entry: {
-        app: "./program.js"
-    },
+const config = {
+    entry: "./src_ts/program.ts",
     output: {
-        path: path.resolve(__dirname, "./build"),
-        filename: "bundle.js"
-    }
+	    filename: "bundle.js",
+	    path: path.resolve(__dirname, "dist")
+    },
+    
+    module: {
+        rules: [
+            {
+                test: /\.ts?$/,
+                use: "ts-loader"
+            }
+        ]
+    },
+
+    resolve: {
+	    extensions: [".ts", ".tsx", ".js"]
+    },
+
+    //devtool: "inline-source-map"
 }
+
+module.exports = config

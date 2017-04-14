@@ -2,11 +2,9 @@
     Copyright 2017, Sjors van Gelderen
 */
 
-namespace NES {
+// TODO: Implement PPU
+export type PPU = {}
 
-    // TODO: Implement PPU
-    export type PPU = {}
-    
-    export const ppu_zero = {}
+export const ppu_zero = {}
 
-}
+document.body.innerHTML += "PPU loaded<br>"

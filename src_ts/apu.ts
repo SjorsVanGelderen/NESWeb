@@ -2,11 +2,11 @@
     Copyright 2017, Sjors van Gelderen
 */
 
-namespace NES {
-    
-    // TODO: Implement APU
-    export type APU = {}
+export const test = 0;
 
-    export const apu_zero = {}
+// TODO: Implement APU
+export type APU = {}
 
-}
+export const apu_zero = {}
+
+document.body.innerHTML += "APU loaded<br>"
