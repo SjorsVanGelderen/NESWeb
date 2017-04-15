@@ -3,22 +3,23 @@
 */
 
 // Addressing modes
-type Implied = { kind: "implied" }
-type Accumulator = { kind: "accumulator" }
-type Immediate = { kind: "immediate", arguments: number }
-type ZeroPage = { kind: "zeropage", arguments: number }
-type ZeroPageIndexed = { kind: "zeropage_indexed", arguments: [number, "X" | "Y"] }
-type Absolute = { kind: "absolute", arguments: number }
-type AbsoluteIndexed = { kind: "absolute_indexed", arguments: [number, "X" | "Y"] }
-type Indirect = { kind: "indirect", arguments: number }
-type IndexedIndirect = { kind: "indexed_indirect", arguments: number } // X register
-type IndirectIndexed = { kind: "indirect_indexed", arguments: number } // Y register
-type Relative = { kind: "relative", arguments: number }
-type Label = { kind: "label", arguments: string }
+export type Implied = { kind: "implied" }
+export type Accumulator = { kind: "accumulator" }
+export type Immediate = { kind: "immediate", arguments: number }
+export type ZeroPage = { kind: "zeropage", arguments: number }
+export type ZeroPageIndexed = { kind: "zeropage_indexed", arguments: [number, "X" | "Y"] }
+export type Absolute = { kind: "absolute", arguments: number }
+export type AbsoluteIndexed = { kind: "absolute_indexed", arguments: [number, "X" | "Y"] }
+export type Indirect = { kind: "indirect", arguments: number }
+export type IndexedIndirect = { kind: "indexed_indirect", arguments: number } // X register
+export type IndirectIndexed = { kind: "indirect_indexed", arguments: number } // Y register
+export type Relative = { kind: "relative", arguments: number }
+export type Label = { kind: "label", arguments: string }
 
 // CPU operations
-type Operation =
-    | { opcode: | "BRK"
+export type Operation =
+    | { opcode:
+        | "BRK"
         | "CLC"
         | "CLI"
         | "CLV"
@@ -29,6 +30,7 @@ type Operation =
         | "NOP"
         | "PHA"
         | "PLA"
+        | "PHP"
         | "PLP"
         | "RTI"
         | "RTS"
@@ -42,7 +44,8 @@ type Operation =
         | "TXS"
         | "TYA",
         operands: Implied }
-    | { opcode: | "BCC"
+    | { opcode:
+        | "BCC"
         | "BCS"
         | "BEQ"
         | "BMI"
@@ -51,32 +54,42 @@ type Operation =
         | "BVC"
         | "BVS",
         operands: Label }
-    | { opcode: | "JSR",
+    | { opcode:
+        | "JSR",
         operands: Absolute }
-    | { opcode: | "JMP",
+    | { opcode:
+        | "JMP",
         operands: Absolute | Indirect }
-    | { opcode: | "BIT",
+    | { opcode:
+        | "BIT",
         operands: ZeroPage | Absolute }
-    | { opcode: | "CPX"
+    | { opcode:
+        | "CPX"
         | "CPY",
         operands: Immediate | ZeroPage | Absolute }
-    | { opcode: | "DEC"
+    | { opcode:
+        | "DEC"
         | "STX"
         | "STY",
         operands: ZeroPage | ZeroPageIndexed | Absolute }
-    | { opcode: | "LDX"
+    | { opcode:
+        | "LDX"
         | "LDY",
         operands: Immediate | ZeroPage | Absolute | AbsoluteIndexed }
-    | { opcode: | "INC",
+    | { opcode:
+        | "INC",
         operands: ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed }
-    | { opcode: | "ASL"
+    | { opcode:
+        | "ASL"
         | "LSR"
         | "ROL"
         | "ROR",
         operands: Accumulator | ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed }
-    | { opcode: | "STA",
+    | { opcode:
+        | "STA",
         operands: ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed | IndirectIndexed }
-    | { opcode: | "ADC"
+    | { opcode: 
+        | "ADC"
         | "AND"
         | "CMP"
         | "EOR"
@@ -85,12 +98,13 @@ type Operation =
         | "SBC",
         operands: Immediate | ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed | IndirectIndexed | IndexedIndirect }
 
-type Statement = Operation // | Label
+// The AST is comprised of statements
+export type Statement = 
+    | { kind: "operation", operation: Operation }
+    | { kind: "EOF" }
 
 // Abstract syntax tree
 // TODO: Make this into an Immutable.List
 export type AST = Statement[]
 
 export const ast_zero: AST = []
-
-document.body.innerHTML += "ASM loaded<br>"
