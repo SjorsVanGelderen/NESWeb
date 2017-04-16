@@ -16,6 +16,20 @@ export type IndirectIndexed = { kind: "indirect_indexed", arguments: number } //
 export type Relative = { kind: "relative", arguments: number }
 export type Label = { kind: "label", arguments: string }
 
+export type AddressingMode =
+    | Implied
+    | Accumulator
+    | Immediate
+    | ZeroPage
+    | ZeroPageIndexed
+    | Absolute
+    | AbsoluteIndexed
+    | Indirect
+    | IndexedIndirect
+    | IndirectIndexed
+    | Relative
+    | Label
+
 // CPU operations
 export type Operation =
     | { opcode:

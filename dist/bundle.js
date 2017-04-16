@@ -108,7 +108,7 @@ exports.status_mask_interrupt = 4;
 exports.status_mask_zero = 2;
 exports.status_mask_carry = 1;
 var mem_zero = [];
-for (var i = 0; i < 100; i++) {
+for (var i = 0; i < 65535; i++) {
     mem_zero[i] = 0;
 }
 exports.cpu_zero = {
@@ -153,8 +153,11 @@ function cpu_transfer(cpu, left, right) {
     else if (right == "X") {
         return __assign({}, cpu, { X: register_value });
     }
-    else {
+    else if (right == "Y") {
         return __assign({}, cpu, { Y: register_value });
+    }
+    else {
+        return __assign({}, cpu, { SP: register_value });
     }
 }
 exports.cpu_transfer = cpu_transfer;
@@ -208,51 +211,200 @@ function log_statement(state) {
         + " | "
         + JSON.stringify(statement));
 }
+function retrieve_from_operand(cpu, operand) {
+    switch (operand.kind) {
+        case "immediate":
+            return operand.arguments;
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            return cpu.MEM[operand.arguments];
+        case "absolute_indexed":
+        case "zeropage_indexed":
+            return cpu.MEM[operand.arguments[0] + (operand.arguments[1] == "X" ? cpu.X : cpu.Y)];
+        case "indexed_indirect":
+            return cpu.MEM[(operand.arguments + cpu.X) % 255];
+        case "indirect_indexed":
+            return cpu.MEM[operand.arguments] + cpu.Y;
+        case "relative":
+            return cpu.PC + operand.arguments;
+        default:
+            return 0;
+    }
+}
+function store_from_operand(cpu, operand, value) {
+    switch (operand.kind) {
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            var memory_prime = cpu.MEM.slice();
+            memory_prime[cpu.MEM[operand.arguments]] = value;
+            return __assign({}, cpu, { MEM: memory_prime });
+        default:
+            return cpu;
+    }
+}
 function process_statement(state) {
     var statement = state.ast[state.cpu.PC];
     if (statement.kind == "operation") {
-        switch (statement.operation.opcode) {
+        var operation = statement.operation;
+        switch (operation.opcode) {
             case "ADC":
-                switch (statement.operation.operands.kind) {
-                    case "immediate":
-                        var result = state.cpu.A + statement.operation.operands.arguments;
-                        if (result > 255) {
-                            return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result - 255 }), true, CPU.status_mask_carry)) });
-                        }
-                        else {
-                            return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: result })) });
-                        }
-                    default:
-                        return state;
+                var adc_value = retrieve_from_operand(state.cpu, operation.operands);
+                var adc_result = state.cpu.A + adc_value;
+                if (adc_result > 255) {
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: adc_result - 255 }), true, CPU.status_mask_carry)) });
                 }
+                else {
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: adc_result })) });
+                }
+            case "AND":
+                var and_value = retrieve_from_operand(state.cpu, operation.operands);
+                var and_result = state.cpu.A & and_value;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: and_result })) });
+            case "ASL":
+                if (operation.operands.kind == "accumulator") {
+                    var asl_accumulator_result = (state.cpu.A << 1) % 255;
+                    var asl_accumulator_carry = (state.cpu.A & 128) > 0;
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: asl_accumulator_result }), asl_accumulator_carry, CPU.status_mask_carry)) });
+                }
+                else {
+                    return state;
+                }
+            case "BCC":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BCS":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BEQ":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BIT":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BMI":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BNE":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BPL":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BRK":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BVC":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "BVS":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
             case "CLC":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_carry)) });
-            case "SEC":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_carry)) });
             case "CLI":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_interrupt)) });
-            case "SEI":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_interrupt)) });
             case "CLV":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_overflow)) });
-            case "NOP":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(state.cpu) });
-            case "TAX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "X")) });
-            case "TXA":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "X", "A")) });
+            case "CMP":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "CPX":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "CPY":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "DEC":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
             case "DEX":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X - 1 })) });
-            case "INX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X + 1 })) });
-            case "TAY":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "Y")) });
-            case "TYA":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "Y", "A")) });
             case "DEY":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: state.cpu.Y - 1 })) });
+            case "EOR":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "INC":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "INX":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X + 1 })) });
             case "INY":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: state.cpu.Y + 1 })) });
+            case "JMP":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "JSR":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "LDA":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "LDX":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "LDY":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "LSR":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "NOP":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(state.cpu) });
+            case "ORA":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "PHA":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "PHP":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "PLA":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "PLP":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "ROL":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "ROR":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "RTI":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "RTS":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "SBC":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "SEC":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_carry)) });
+            case "SEI":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_interrupt)) });
+            case "STA":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "STY":
+                console.log("Not yet implemented: " + JSON.stringify(statement));
+                return state;
+            case "TAX":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "X")) });
+            case "TAY":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "Y")) });
+            case "TXS":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "X", "SP")) });
+            case "TXA":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "X", "A")) });
+            case "TSX":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "SP", "X")) });
+            case "TYA":
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "Y", "A")) });
             default:
                 console.log("Unrecognized statement: "
                     + statement.operation.opcode

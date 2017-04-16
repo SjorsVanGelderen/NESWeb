@@ -23,8 +23,14 @@ export type CPU = {
     MEM: number[]
 };
 
+/*
+    Currently the memory is represented inefficiently
+    A single JS number may contain 8 bytes,
+    but for now I'd like to avoid inaccuracy issues
+    relating to floating point representations
+*/
 const mem_zero: number[] = []
-for(var i = 0; i < 100; i++) {
+for(var i = 0; i < 65535; i++) {
     mem_zero[i] = 0
 }
 
@@ -70,7 +76,7 @@ export function cpu_manipulate_sr(cpu: CPU, enable: boolean, mask: number): CPU 
 // Transfer a value between registers
 export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") : CPU {
     const register_value: number = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y)
-
+    
     if(right == "A") {
         return { ...cpu, A: register_value }
     }

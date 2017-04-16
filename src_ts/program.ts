@@ -45,7 +45,76 @@ function log_statement(state: State): void {
                 + JSON.stringify(statement))
 }
 
+// Retrieves a value from an address as determined by an addressing mode
+// TODO: Extensively review and test
+function retrieve_from_operand(cpu: CPU.CPU,
+                               operand:
+                               | ASM.Immediate
+                               | ASM.ZeroPage
+                               | ASM.ZeroPageIndexed
+                               | ASM.Absolute
+                               | ASM.AbsoluteIndexed
+                               | ASM.Indirect
+                               | ASM.IndexedIndirect
+                               | ASM.IndirectIndexed
+                               | ASM.Relative): number {
+    switch(operand.kind) {
+        case "immediate":
+            return operand.arguments
+        
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            return cpu.MEM[operand.arguments]
+
+        case "absolute_indexed":
+        case "zeropage_indexed":
+            return cpu.MEM[operand.arguments[0] + (operand.arguments[1] == "X" ? cpu.X : cpu.Y)]
+
+        case "indexed_indirect":
+            return cpu.MEM[(operand.arguments + cpu.X) % 0b11111111]
+
+        case "indirect_indexed":
+            return cpu.MEM[operand.arguments] + cpu.Y
+        
+        case "relative":
+            return cpu.PC + operand.arguments
+        
+        default:
+            // Should never happen
+            return 0
+    }
+}
+
+// Stores a value to an address as determined by an addressing mode
+function store_from_operand(cpu: CPU.CPU,
+                            operand:
+                            | ASM.ZeroPage
+                            | ASM.ZeroPageIndexed
+                            | ASM.Absolute
+                            | ASM.AbsoluteIndexed
+                            | ASM.Indirect
+                            | ASM.IndexedIndirect
+                            | ASM.IndirectIndexed
+                            | ASM.Relative,
+                            value: number): CPU.CPU {
+    switch (operand.kind) {
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            // TODO: Clean up this dirty mutation
+            const memory_prime: number[] = cpu.MEM.slice() // Copy the memory
+            memory_prime[cpu.MEM[operand.arguments]] = value // Mutate the new memory
+            return { ...cpu, MEM: memory_prime } // Return a fresh CPU state
+
+        default:
+            // Should never happen
+            return cpu
+    }
+}
+
 // Process a single statement according to the PC
+// TODO: Extensively review and test
 function process_statement(state: State): State {
     const statement: ASM.Statement = state.ast[state.cpu.PC]
 
@@ -54,39 +123,36 @@ function process_statement(state: State): State {
 
         switch(operation.opcode) {
             case "ADC":
-                switch(operation.operands.kind) {
-                    case "immediate":
-                        const result: number = (state.cpu.A + operation.operands.arguments)
-
-                        if(result > 0b11111111) {
-                            return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr({ ...state.cpu,
-                                A: result - 0b11111111
-                            }, true, CPU.status_mask_carry)) }
-                        } else {
-                            return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu,
-                                A: result
-                            }) }
-                        }
-                    
-                    default:
-                        console.log("Not yet implemented: " + JSON.stringify(statement))
-                        return state
+                const adc_value: number = retrieve_from_operand(state.cpu, operation.operands)
+                const adc_result: number = state.cpu.A + adc_value
+                
+                if(adc_result > 0b11111111) {
+                    return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr({ ...state.cpu,
+                        A: adc_result - 0b11111111
+                    }, true, CPU.status_mask_carry)) }
+                }
+                else {
+                    return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: adc_result }) }
                 }
 
             case "AND":
-                switch(operation.operands.kind) {
-                    case "immediate":
-                        const result: number = state.cpu.A & operation.operands.arguments
-                        return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: result }) }
-                    
-                    default:
-                        console.log("Not yet implemented: " + JSON.stringify(statement))
-                        return state
-                }
+                const and_value: number = retrieve_from_operand(state.cpu, operation.operands)
+                const and_result: number = state.cpu.A & and_value
+                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: and_result }) }
 
             case "ASL":
-                console.log("Not yet implemented: " + JSON.stringify(statement))
-                return state
+                if(operation.operands.kind == "accumulator") {
+                    const asl_accumulator_result: number = (state.cpu.A << 1) % 0b11111111
+                    const asl_accumulator_carry: boolean = (state.cpu.A & 0b10000000) > 0
+                    return  { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr({ ...state.cpu,
+                        A: asl_accumulator_result
+                    }, asl_accumulator_carry, CPU.status_mask_carry)) } // Might incorrectly reset the carry flag
+                }
+                else {
+                    //const asl_value: number = retrieve_from_operand(state.cpu, operation.operands)
+                    // TODO: Not yet implemented (can't store values yet)
+                    return state
+                }
 
             case "BCC":
                 console.log("Not yet implemented: " + JSON.stringify(statement))
@@ -349,7 +415,7 @@ document.body.onload = function(): void {
     ]
 
     const state: State = state_zero
-    state.ast = seeded_ast // Dirty?
+    state.ast = seeded_ast // Dirty? Should try to avoid mutation
 
     // Process all steps until EOF
     step_all(state)
