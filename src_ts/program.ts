@@ -103,8 +103,9 @@ function store_from_operand(cpu: CPU.CPU,
         case "indirect":
         case "zeropage":
             // TODO: Clean up this dirty mutation
+            console.log("TEST")
             const memory_prime: number[] = cpu.MEM.slice() // Copy the memory
-            memory_prime[cpu.MEM[operand.arguments]] = value // Mutate the new memory
+            memory_prime[operand.arguments] = value // Mutate the new memory
             return { ...cpu, MEM: memory_prime } // Return a fresh CPU state
 
         default:
@@ -117,6 +118,7 @@ function store_from_operand(cpu: CPU.CPU,
 // TODO: Extensively review and test
 function process_statement(state: State): State {
     const statement: ASM.Statement = state.ast[state.cpu.PC]
+    log_statement(state)
 
     if(statement.kind == "operation") {
         const operation: ASM.Operation = statement.operation
@@ -152,6 +154,7 @@ function process_statement(state: State): State {
                     //const asl_value: number = retrieve_from_operand(state.cpu, operation.operands)
                     // TODO: Not yet implemented (can't store values yet)
                     return state
+                    //return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_)}
                 }
 
             case "BCC":
@@ -254,16 +257,19 @@ function process_statement(state: State): State {
                 return state
 
             case "LDA":
-                console.log("Not yet implemented: " + JSON.stringify(statement))
-                return state
+                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu,
+                    A: retrieve_from_operand(state.cpu, operation.operands)
+                }) }
 
             case "LDX":
-                console.log("Not yet implemented: " + JSON.stringify(statement))
-                return state
+                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu,
+                    X: retrieve_from_operand(state.cpu, operation.operands)
+                }) }
 
             case "LDY":
-                console.log("Not yet implemented: " + JSON.stringify(statement))
-                return state
+                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu,
+                    Y: retrieve_from_operand(state.cpu, operation.operands)
+                }) }
 
             case "LSR":
                 console.log("Not yet implemented: " + JSON.stringify(statement))
@@ -324,8 +330,7 @@ function process_statement(state: State): State {
                 }
 
             case "STA":
-                console.log("Not yet implemented: " + JSON.stringify(statement))
-                return state
+                return { ...state, cpu: CPU.cpu_increase_pc(store_from_operand(state.cpu, operation.operands, state.cpu.A)) }
 
             case "STY":
                 console.log("Not yet implemented: " + JSON.stringify(statement))
@@ -373,6 +378,7 @@ function process_statement(state: State): State {
         return { ...state, flags: { ...state.flags, eof: true } }
     }
     
+    // Should be unreachable?
     return state
 }
 
@@ -407,15 +413,30 @@ function step_all(state: State): void {
 }
 
 document.body.onload = function(): void {
+    /*
     const seeded_ast: ASM.AST = [
         { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11111111 } } },
         { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11110000 } } },
         { kind: "EOF" }
     ]
+    */
+
+    const seeded_mem: number[] = CPU.cpu_zero.MEM
+    seeded_mem[0] = 0b00010001
+
+    const seeded_ast: ASM.AST = [
+        { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0b00000000 } } },
+        { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 0b00000001 } } },
+        { kind: "EOF" }
+    ]
 
     const state: State = state_zero
     state.ast = seeded_ast // Dirty? Should try to avoid mutation
+    state.cpu.MEM = seeded_mem
+
+    // Log initial CPU state
+    CPU.cpu_log(state.cpu)
 
     // Process all steps until EOF
     step_all(state)

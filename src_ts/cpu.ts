@@ -55,7 +55,8 @@ export function cpu_log(cpu: CPU): void {
             return value
         }
     }
-    console.log(JSON.stringify(cpu, replacer))
+    //console.log(JSON.stringify(cpu, replacer)) // Without memory
+    console.log(JSON.stringify(cpu)) // With memory
 }
 
 // Increase the PC by 1
@@ -76,7 +77,7 @@ export function cpu_manipulate_sr(cpu: CPU, enable: boolean, mask: number): CPU 
 // Transfer a value between registers
 export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") : CPU {
     const register_value: number = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y)
-    
+
     if(right == "A") {
         return { ...cpu, A: register_value }
     }

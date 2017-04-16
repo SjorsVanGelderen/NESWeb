@@ -129,7 +129,7 @@ function cpu_log(cpu) {
             return value;
         }
     }
-    console.log(JSON.stringify(cpu, replacer));
+    console.log(JSON.stringify(cpu));
 }
 exports.cpu_log = cpu_log;
 function cpu_increase_pc(cpu) {
@@ -237,8 +237,9 @@ function store_from_operand(cpu, operand, value) {
         case "absolute":
         case "indirect":
         case "zeropage":
+            console.log("TEST");
             var memory_prime = cpu.MEM.slice();
-            memory_prime[cpu.MEM[operand.arguments]] = value;
+            memory_prime[operand.arguments] = value;
             return __assign({}, cpu, { MEM: memory_prime });
         default:
             return cpu;
@@ -246,6 +247,7 @@ function store_from_operand(cpu, operand, value) {
 }
 function process_statement(state) {
     var statement = state.ast[state.cpu.PC];
+    log_statement(state);
     if (statement.kind == "operation") {
         var operation = statement.operation;
         switch (operation.opcode) {
@@ -340,14 +342,11 @@ function process_statement(state) {
                 console.log("Not yet implemented: " + JSON.stringify(statement));
                 return state;
             case "LDA":
-                console.log("Not yet implemented: " + JSON.stringify(statement));
-                return state;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: retrieve_from_operand(state.cpu, operation.operands) })) });
             case "LDX":
-                console.log("Not yet implemented: " + JSON.stringify(statement));
-                return state;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: retrieve_from_operand(state.cpu, operation.operands) })) });
             case "LDY":
-                console.log("Not yet implemented: " + JSON.stringify(statement));
-                return state;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: retrieve_from_operand(state.cpu, operation.operands) })) });
             case "LSR":
                 console.log("Not yet implemented: " + JSON.stringify(statement));
                 return state;
@@ -388,8 +387,7 @@ function process_statement(state) {
             case "SEI":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_interrupt)) });
             case "STA":
-                console.log("Not yet implemented: " + JSON.stringify(statement));
-                return state;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(store_from_operand(state.cpu, operation.operands, state.cpu.A)) });
             case "STY":
                 console.log("Not yet implemented: " + JSON.stringify(statement));
                 return state;
@@ -440,14 +438,17 @@ function step_all(state) {
     }
 }
 document.body.onload = function () {
+    var seeded_mem = CPU.cpu_zero.MEM;
+    seeded_mem[0] = 17;
     var seeded_ast = [
-        { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
-        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 255 } } },
-        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 240 } } },
+        { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0 } } },
+        { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 1 } } },
         { kind: "EOF" }
     ];
     var state = state_zero;
     state.ast = seeded_ast;
+    state.cpu.MEM = seeded_mem;
+    CPU.cpu_log(state.cpu);
     step_all(state);
 };
 
