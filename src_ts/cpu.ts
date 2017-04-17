@@ -2,6 +2,9 @@
   Copyright 2017, Sjors van Gelderen
 */
 
+import Immutable = require("immutable")
+import * as ASM from "./asm"
+
 // Status register bitmasks
 export const status_mask_sign: number       = 0b10000000
 export const status_mask_overflow: number   = 0b01000000
@@ -20,7 +23,7 @@ export type CPU = {
     SP:  number,
     PC:  number,
     SR:  number,
-    MEM: number[]
+    MEM: Immutable.List<number>
 };
 
 /*
@@ -29,10 +32,12 @@ export type CPU = {
     but for now I'd like to avoid inaccuracy issues
     relating to floating point representations
 */
-const mem_zero: number[] = []
+const temp_mem_zero: number[] = []
 for(var i = 0; i < 65535; i++) {
-    mem_zero[i] = 0
+    temp_mem_zero[i] = 0
 }
+const mem_zero: Immutable.List<number> = Immutable.List(temp_mem_zero)
+
 
 export const cpu_zero: CPU = {
     A:   0,
@@ -64,6 +69,16 @@ export function cpu_increase_pc(cpu: CPU): CPU {
     return { ...cpu, PC: cpu.PC + 1 }
 }
 
+// Branch depending on the predicate
+export function cpu_branch(cpu: CPU, predicate: boolean, offset: number) {
+    if(predicate) {
+        return { ...cpu, PC: cpu.PC + offset }
+    }
+    else {
+        return cpu_increase_pc(cpu)
+    }
+}
+
 // Manipulate a flag in the SR
 export function cpu_manipulate_sr(cpu: CPU, enable: boolean, mask: number): CPU {
     if(enable) {
@@ -89,5 +104,79 @@ export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" 
     }
     else {
         return { ...cpu, SP: register_value }
+    }
+}
+
+// Retrieves a value from an address as determined by an addressing mode
+// TODO: Extensively review and test
+export function cpu_retrieve_from_operand(cpu: CPU,
+                               operand:
+                               | ASM.Accumulator
+                               | ASM.Immediate
+                               | ASM.ZeroPage
+                               | ASM.ZeroPageIndexed
+                               | ASM.Absolute
+                               | ASM.AbsoluteIndexed
+                               | ASM.Indirect
+                               | ASM.IndexedIndirect
+                               | ASM.IndirectIndexed
+                               | ASM.Relative
+                               | ASM.Label): number {
+    switch(operand.kind) {
+        case "accumulator":
+            return cpu.A
+
+        case "immediate":
+            return operand.arguments
+        
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            return cpu.MEM.get(operand.arguments)
+
+        case "absolute_indexed":
+        case "zeropage_indexed":
+            return cpu.MEM.get(operand.arguments[0] + (operand.arguments[1] == "X" ? cpu.X : cpu.Y))
+
+        case "indexed_indirect":
+            return cpu.MEM.get((operand.arguments + cpu.X) % 0b11111111)
+
+        case "indirect_indexed":
+            return cpu.MEM.get(operand.arguments) + cpu.Y
+        
+        case "relative":
+            return cpu.PC + operand.arguments
+        
+        default:
+            // Should never happen
+            return 0
+    }
+}
+
+// Stores a value to an address as determined by an addressing mode
+export function cpu_store_from_operand(cpu: CPU,
+                            operand:
+                            | ASM.Accumulator
+                            | ASM.ZeroPage
+                            | ASM.ZeroPageIndexed
+                            | ASM.Absolute
+                            | ASM.AbsoluteIndexed
+                            | ASM.Indirect
+                            | ASM.IndexedIndirect
+                            | ASM.IndirectIndexed
+                            | ASM.Relative,
+                            value: number): CPU {
+    switch (operand.kind) {
+        case "accumulator":
+            return { ...cpu, A: value }
+
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            return { ...cpu, MEM: cpu.MEM.set(operand.arguments, value) }
+
+        default:
+            // TODO: Implement missing cases
+            return cpu
     }
 }

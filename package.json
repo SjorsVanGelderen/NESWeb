@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "awesome-typescript-loader": "^3.1.2",
+    "immutable": "^3.8.1",
     "source-map-loader": "^0.2.1",
     "ts-loader": "^2.0.3",
     "typescript": "^2.2.2",

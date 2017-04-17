@@ -67,7 +67,7 @@ export type Operation =
         | "BPL"
         | "BVC"
         | "BVS",
-        operands: Label }
+        operands: Relative | Label }
     | { opcode:
         | "JSR",
         operands: Absolute }
@@ -102,7 +102,7 @@ export type Operation =
     | { opcode:
         | "STA",
         operands: ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed | IndirectIndexed }
-    | { opcode: 
+    | { opcode:
         | "ADC"
         | "AND"
         | "CMP"
