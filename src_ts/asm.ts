@@ -2,19 +2,21 @@
   Copyright 2017, Sjors van Gelderen
 */
 
+import Immutable = require("immutable")
+
 // Addressing modes
-export type Implied = { kind: "implied" }
-export type Accumulator = { kind: "accumulator" }
-export type Immediate = { kind: "immediate", arguments: number }
-export type ZeroPage = { kind: "zeropage", arguments: number }
+export type Implied         = { kind: "implied" }
+export type Accumulator     = { kind: "accumulator" }
+export type Immediate       = { kind: "immediate", arguments: number }
+export type ZeroPage        = { kind: "zeropage", arguments: number }
 export type ZeroPageIndexed = { kind: "zeropage_indexed", arguments: [number, "X" | "Y"] }
-export type Absolute = { kind: "absolute", arguments: number }
+export type Absolute        = { kind: "absolute", arguments: number }
 export type AbsoluteIndexed = { kind: "absolute_indexed", arguments: [number, "X" | "Y"] }
-export type Indirect = { kind: "indirect", arguments: number }
+export type Indirect        = { kind: "indirect", arguments: number }
 export type IndexedIndirect = { kind: "indexed_indirect", arguments: number } // X register
 export type IndirectIndexed = { kind: "indirect_indexed", arguments: number } // Y register
-export type Relative = { kind: "relative", arguments: number }
-export type Label = { kind: "label", arguments: string }
+export type Relative        = { kind: "relative", arguments: number }
+export type Label           = { kind: "label", arguments: string }
 
 export type AddressingMode =
     | Implied
@@ -157,7 +159,6 @@ export type Statement =
     | { kind: "EOF" }
 
 // Abstract syntax tree
-// TODO: Make this into an Immutable.List
-export type AST = Statement[]
+export type AST = Immutable.List<Statement>
 
-export const ast_zero: AST = []
+export const ast_zero: AST = Immutable.List<Statement>()

@@ -10,11 +10,13 @@ import * as PPU from "./ppu"
 
 // Hints for signaling requested program behaviour
 type Flags = {
+    apu_dirty: boolean,
     ppu_dirty: boolean,
     eof: boolean
 }
 
 const flags_zero = {
+    apu_dirty: false,
     ppu_dirty: false,
     eof: false
 }
@@ -39,7 +41,7 @@ const state_zero: State = {
 // Log the current statement according to the PC
 function log_statement(state: State): void {
     const pc: number = state.cpu.PC
-    const statement: ASM.Statement = state.ast[state.cpu.PC]
+    const statement: ASM.Statement = state.ast.get(state.cpu.PC)
     console.log("PC: "
                 + pc
                 + " | "
@@ -49,7 +51,7 @@ function log_statement(state: State): void {
 // Process a single statement according to the PC
 // TODO: Extensively review and test
 function process_statement(state: State): State {
-    const statement: ASM.Statement = state.ast[state.cpu.PC]
+    const statement: ASM.Statement = state.ast.get(state.cpu.PC)
     log_statement(state)
 
     if(statement.kind == "operation") {
@@ -61,12 +63,38 @@ function process_statement(state: State): State {
                 const result: number = state.cpu.A + value
                 
                 if(result > 0b11111111) {
-                    return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr({ ...state.cpu,
-                        A: result - 0b11111111
-                    }, true, CPU.status_mask_carry)) }
+                    return { ...state, cpu:
+                        CPU.cpu_increase_pc(
+                            CPU.cpu_manipulate_sr(
+                                CPU.cpu_manipulate_sr(
+                                    CPU.cpu_manipulate_sr(
+                                        CPU.cpu_manipulate_sr(
+                                            { ...state.cpu, A: result - 0b11111111},
+                                            true,
+                                            CPU.status_mask_carry
+                                        ),
+                                        result == 0,
+                                        CPU.status_mask_zero
+                                    ),
+                                    (result & 0b10000000) > 0,
+                                    CPU.status_mask_sign
+                                ),
+                                (result & 0b10000000) > 0, // Might be incorrect
+                                CPU.status_mask_overflow
+                            )
+                        )
+                    }
                 }
                 else {
-                    return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: result }) }
+                    return { ...state, cpu:
+                        CPU.cpu_increase_pc(
+                            CPU.cpu_manipulate_sr(
+                                { ...state.cpu, A: result },
+                                result == 0,
+                                CPU.status_mask_zero
+                            )
+                        )
+                    }
                 }
             }
 
@@ -521,7 +549,7 @@ function process_statement(state: State): State {
 
 // Process a single statement
 function step(state: State): State {
-    if(state.cpu.PC >= 0 && state.cpu.PC < state.ast.length) {
+    if(state.cpu.PC >= 0 && state.cpu.PC < state.ast.count()) {
         // Process the statement
         log_statement(state)
         const state_prime = process_statement(state)
@@ -543,7 +571,7 @@ function step_all(state: State): void {
 document.body.onload = function(): void {
     const seeded_mem: Immutable.List<number> = CPU.cpu_zero.MEM.set(0, 0b00010001)
 
-    const seeded_ast: ASM.AST = [
+    const seeded_ast: ASM.AST = Immutable.List<ASM.Statement>([
         { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0b00000000 } } },
         { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 0b00000001 } } },
         { kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0b00000000 } } },
@@ -551,7 +579,7 @@ document.body.onload = function(): void {
         { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11110000 } } },
         { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "EOF" }
-    ]
+    ])
 
     const state: State = state_zero
     state.ast = seeded_ast // Dirty? Should try to avoid mutation

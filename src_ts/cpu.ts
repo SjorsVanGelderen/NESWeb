@@ -32,12 +32,25 @@ export type CPU = {
     but for now I'd like to avoid inaccuracy issues
     relating to floating point representations
 */
-const temp_mem_zero: number[] = []
-for(var i = 0; i < 65535; i++) {
-    temp_mem_zero[i] = 0
+function mem_zero_generator(accumulator: {
+        list: Immutable.List<number>,
+        count: number
+    }): Immutable.List<number> {
+    if(accumulator.count < 65535) {
+        return mem_zero_generator({
+            list: accumulator.list.push(0),
+            count: accumulator.count + 1
+        })
+    }
+    else {
+        return accumulator.list
+    }
 }
-const mem_zero: Immutable.List<number> = Immutable.List(temp_mem_zero)
 
+const mem_zero: Immutable.List<number> = mem_zero_generator({
+    list: Immutable.List<number>(),
+    count: 0
+})
 
 export const cpu_zero: CPU = {
     A:   0,

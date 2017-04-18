@@ -70,161 +70,6 @@
 /* 0 */
 /***/ (function(module, exports, __webpack_require__) {
 
-"use strict";
-
-exports.__esModule = true;
-exports.apu_zero = {};
-
-
-/***/ }),
-/* 1 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-exports.__esModule = true;
-exports.ast_zero = [];
-
-
-/***/ }),
-/* 2 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var __assign = (this && this.__assign) || Object.assign || function(t) {
-    for (var s, i = 1, n = arguments.length; i < n; i++) {
-        s = arguments[i];
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-            t[p] = s[p];
-    }
-    return t;
-};
-exports.__esModule = true;
-var Immutable = __webpack_require__(4);
-exports.status_mask_sign = 128;
-exports.status_mask_overflow = 64;
-exports.status_mask_breakpoint = 16;
-exports.status_mask_interrupt = 4;
-exports.status_mask_zero = 2;
-exports.status_mask_carry = 1;
-var temp_mem_zero = [];
-for (var i = 0; i < 65535; i++) {
-    temp_mem_zero[i] = 0;
-}
-var mem_zero = Immutable.List(temp_mem_zero);
-exports.cpu_zero = {
-    A: 0,
-    X: 0,
-    Y: 0,
-    SP: 0,
-    PC: 0,
-    SR: 0,
-    MEM: mem_zero
-};
-function cpu_log(cpu) {
-    function replacer(key, value) {
-        if (key == "MEM") {
-            return undefined;
-        }
-        else {
-            return value;
-        }
-    }
-    console.log(JSON.stringify(cpu));
-}
-exports.cpu_log = cpu_log;
-function cpu_increase_pc(cpu) {
-    return __assign({}, cpu, { PC: cpu.PC + 1 });
-}
-exports.cpu_increase_pc = cpu_increase_pc;
-function cpu_branch(cpu, predicate, offset) {
-    if (predicate) {
-        return __assign({}, cpu, { PC: cpu.PC + offset });
-    }
-    else {
-        return cpu_increase_pc(cpu);
-    }
-}
-exports.cpu_branch = cpu_branch;
-function cpu_manipulate_sr(cpu, enable, mask) {
-    if (enable) {
-        return __assign({}, cpu, { SR: cpu.SR | mask });
-    }
-    else {
-        return __assign({}, cpu, { SR: cpu.SR & (~mask) });
-    }
-}
-exports.cpu_manipulate_sr = cpu_manipulate_sr;
-function cpu_transfer(cpu, left, right) {
-    var register_value = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y);
-    if (right == "A") {
-        return __assign({}, cpu, { A: register_value });
-    }
-    else if (right == "X") {
-        return __assign({}, cpu, { X: register_value });
-    }
-    else if (right == "Y") {
-        return __assign({}, cpu, { Y: register_value });
-    }
-    else {
-        return __assign({}, cpu, { SP: register_value });
-    }
-}
-exports.cpu_transfer = cpu_transfer;
-function cpu_retrieve_from_operand(cpu, operand) {
-    switch (operand.kind) {
-        case "accumulator":
-            return cpu.A;
-        case "immediate":
-            return operand.arguments;
-        case "absolute":
-        case "indirect":
-        case "zeropage":
-            return cpu.MEM.get(operand.arguments);
-        case "absolute_indexed":
-        case "zeropage_indexed":
-            return cpu.MEM.get(operand.arguments[0] + (operand.arguments[1] == "X" ? cpu.X : cpu.Y));
-        case "indexed_indirect":
-            return cpu.MEM.get((operand.arguments + cpu.X) % 255);
-        case "indirect_indexed":
-            return cpu.MEM.get(operand.arguments) + cpu.Y;
-        case "relative":
-            return cpu.PC + operand.arguments;
-        default:
-            return 0;
-    }
-}
-exports.cpu_retrieve_from_operand = cpu_retrieve_from_operand;
-function cpu_store_from_operand(cpu, operand, value) {
-    switch (operand.kind) {
-        case "accumulator":
-            return __assign({}, cpu, { A: value });
-        case "absolute":
-        case "indirect":
-        case "zeropage":
-            return __assign({}, cpu, { MEM: cpu.MEM.set(operand.arguments, value) });
-        default:
-            return cpu;
-    }
-}
-exports.cpu_store_from_operand = cpu_store_from_operand;
-
-
-/***/ }),
-/* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-exports.__esModule = true;
-exports.ppu_zero = {};
-
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
 /**
  *  Copyright (c) 2014-2015, Facebook, Inc.
  *  All rights reserved.
@@ -5206,6 +5051,172 @@ exports.ppu_zero = {};
 }));
 
 /***/ }),
+/* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+exports.apu_zero = {};
+
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+var Immutable = __webpack_require__(0);
+exports.ast_zero = Immutable.List();
+
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
+    }
+    return t;
+};
+exports.__esModule = true;
+var Immutable = __webpack_require__(0);
+exports.status_mask_sign = 128;
+exports.status_mask_overflow = 64;
+exports.status_mask_breakpoint = 16;
+exports.status_mask_interrupt = 4;
+exports.status_mask_zero = 2;
+exports.status_mask_carry = 1;
+function mem_zero_generator(accumulator) {
+    if (accumulator.count < 65535) {
+        return mem_zero_generator({
+            list: accumulator.list.push(0),
+            count: accumulator.count + 1
+        });
+    }
+    else {
+        return accumulator.list;
+    }
+}
+var mem_zero = mem_zero_generator({
+    list: Immutable.List(),
+    count: 0
+});
+exports.cpu_zero = {
+    A: 0,
+    X: 0,
+    Y: 0,
+    SP: 0,
+    PC: 0,
+    SR: 0,
+    MEM: mem_zero
+};
+function cpu_log(cpu) {
+    function replacer(key, value) {
+        if (key == "MEM") {
+            return undefined;
+        }
+        else {
+            return value;
+        }
+    }
+    console.log(JSON.stringify(cpu));
+}
+exports.cpu_log = cpu_log;
+function cpu_increase_pc(cpu) {
+    return __assign({}, cpu, { PC: cpu.PC + 1 });
+}
+exports.cpu_increase_pc = cpu_increase_pc;
+function cpu_branch(cpu, predicate, offset) {
+    if (predicate) {
+        return __assign({}, cpu, { PC: cpu.PC + offset });
+    }
+    else {
+        return cpu_increase_pc(cpu);
+    }
+}
+exports.cpu_branch = cpu_branch;
+function cpu_manipulate_sr(cpu, enable, mask) {
+    if (enable) {
+        return __assign({}, cpu, { SR: cpu.SR | mask });
+    }
+    else {
+        return __assign({}, cpu, { SR: cpu.SR & (~mask) });
+    }
+}
+exports.cpu_manipulate_sr = cpu_manipulate_sr;
+function cpu_transfer(cpu, left, right) {
+    var register_value = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y);
+    if (right == "A") {
+        return __assign({}, cpu, { A: register_value });
+    }
+    else if (right == "X") {
+        return __assign({}, cpu, { X: register_value });
+    }
+    else if (right == "Y") {
+        return __assign({}, cpu, { Y: register_value });
+    }
+    else {
+        return __assign({}, cpu, { SP: register_value });
+    }
+}
+exports.cpu_transfer = cpu_transfer;
+function cpu_retrieve_from_operand(cpu, operand) {
+    switch (operand.kind) {
+        case "accumulator":
+            return cpu.A;
+        case "immediate":
+            return operand.arguments;
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            return cpu.MEM.get(operand.arguments);
+        case "absolute_indexed":
+        case "zeropage_indexed":
+            return cpu.MEM.get(operand.arguments[0] + (operand.arguments[1] == "X" ? cpu.X : cpu.Y));
+        case "indexed_indirect":
+            return cpu.MEM.get((operand.arguments + cpu.X) % 255);
+        case "indirect_indexed":
+            return cpu.MEM.get(operand.arguments) + cpu.Y;
+        case "relative":
+            return cpu.PC + operand.arguments;
+        default:
+            return 0;
+    }
+}
+exports.cpu_retrieve_from_operand = cpu_retrieve_from_operand;
+function cpu_store_from_operand(cpu, operand, value) {
+    switch (operand.kind) {
+        case "accumulator":
+            return __assign({}, cpu, { A: value });
+        case "absolute":
+        case "indirect":
+        case "zeropage":
+            return __assign({}, cpu, { MEM: cpu.MEM.set(operand.arguments, value) });
+        default:
+            return cpu;
+    }
+}
+exports.cpu_store_from_operand = cpu_store_from_operand;
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+exports.ppu_zero = {};
+
+
+/***/ }),
 /* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -5220,11 +5231,13 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
     return t;
 };
 exports.__esModule = true;
-var APU = __webpack_require__(0);
-var ASM = __webpack_require__(1);
-var CPU = __webpack_require__(2);
-var PPU = __webpack_require__(3);
+var Immutable = __webpack_require__(0);
+var APU = __webpack_require__(1);
+var ASM = __webpack_require__(2);
+var CPU = __webpack_require__(3);
+var PPU = __webpack_require__(4);
 var flags_zero = {
+    apu_dirty: false,
     ppu_dirty: false,
     eof: false
 };
@@ -5237,14 +5250,14 @@ var state_zero = {
 };
 function log_statement(state) {
     var pc = state.cpu.PC;
-    var statement = state.ast[state.cpu.PC];
+    var statement = state.ast.get(state.cpu.PC);
     console.log("PC: "
         + pc
         + " | "
         + JSON.stringify(statement));
 }
 function process_statement(state) {
-    var statement = state.ast[state.cpu.PC];
+    var statement = state.ast.get(state.cpu.PC);
     log_statement(state);
     if (statement.kind == "operation") {
         var operation = statement.operation;
@@ -5253,10 +5266,10 @@ function process_statement(state) {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
                 var result = state.cpu.A + value;
                 if (result > 255) {
-                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result - 255 }), true, CPU.status_mask_carry)) });
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result - 255 }), true, CPU.status_mask_carry), result == 0, CPU.status_mask_zero), (result & 128) > 0, CPU.status_mask_sign), (result & 128) > 0, CPU.status_mask_overflow)) });
                 }
                 else {
-                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: result })) });
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result }), result == 0, CPU.status_mask_zero)) });
                 }
             }
             case "AND": {
@@ -5410,7 +5423,7 @@ function process_statement(state) {
     return state;
 }
 function step(state) {
-    if (state.cpu.PC >= 0 && state.cpu.PC < state.ast.length) {
+    if (state.cpu.PC >= 0 && state.cpu.PC < state.ast.count()) {
         log_statement(state);
         var state_prime = process_statement(state);
         CPU.cpu_log(state_prime.cpu);
@@ -5426,7 +5439,7 @@ function step_all(state) {
 }
 document.body.onload = function () {
     var seeded_mem = CPU.cpu_zero.MEM.set(0, 17);
-    var seeded_ast = [
+    var seeded_ast = Immutable.List([
         { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0 } } },
         { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 1 } } },
         { kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0 } } },
@@ -5434,7 +5447,7 @@ document.body.onload = function () {
         { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 240 } } },
         { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "EOF" }
-    ];
+    ]);
     var state = state_zero;
     state.ast = seeded_ast;
     state.cpu.MEM = seeded_mem;
