@@ -5249,73 +5249,88 @@ function process_statement(state) {
     if (statement.kind == "operation") {
         var operation = statement.operation;
         switch (operation.opcode) {
-            case "ADC":
-                var adc_value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var adc_result = state.cpu.A + adc_value;
-                if (adc_result > 255) {
-                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: adc_result - 255 }), true, CPU.status_mask_carry)) });
+            case "ADC": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = state.cpu.A + value;
+                if (result > 255) {
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result - 255 }), true, CPU.status_mask_carry)) });
                 }
                 else {
-                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: adc_result })) });
+                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: result })) });
                 }
-            case "AND":
-                var and_value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var and_result = state.cpu.A & and_value;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: and_result })) });
-            case "ASL":
-                var asl_value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var asl_result = (asl_value << 1) % 255;
-                var asl_carry = (asl_value & 128) > 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, asl_result), asl_carry, CPU.status_mask_carry)) });
+            }
+            case "AND": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = state.cpu.A & value;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: result })) });
+            }
+            case "ASL": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = (value << 1) % 255;
+                var carry = (value & 128) > 0;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result), carry, CPU.status_mask_carry)) });
+            }
             case "BCC":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "BCS":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "BEQ":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_zero) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
-            case "BIT":
-                var bit_value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var bit_result = bit_value & state.cpu.A;
-                var bit_cpu = CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, bit_result == 0, CPU.status_mask_zero), (bit_result & 2) > 0, CPU.status_mask_overflow), (bit_result & 129) > 0, CPU.status_mask_sign));
-                return __assign({}, state, { cpu: bit_cpu });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_zero) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
+            case "BIT": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = value & state.cpu.A;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, result == 0, CPU.status_mask_zero), (result & 2) > 0, CPU.status_mask_overflow), (result & 129) > 0, CPU.status_mask_sign)) });
+            }
             case "BMI":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "BNE":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_zero) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_zero) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "BPL":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "BRK":
                 return state;
             case "BVC":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_overflow) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_overflow) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "BVS":
-                return __assign({}, state, { cpu: __assign({}, state.cpu, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_overflow) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) }) });
+                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_overflow) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
             case "CLC":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_carry)) });
             case "CLI":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_interrupt)) });
             case "CLV":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_overflow)) });
-            case "CMP":
-                return state;
-            case "CPX":
-                return state;
-            case "CPY":
-                return state;
-            case "DEC":
-                return state;
+            case "CMP": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, value == state.cpu.A, CPU.status_mask_zero), value >= state.cpu.A, CPU.status_mask_carry)) });
+            }
+            case "CPX": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, value == state.cpu.X, CPU.status_mask_zero), value >= state.cpu.X, CPU.status_mask_carry)) });
+            }
+            case "CPY": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, value == state.cpu.Y, CPU.status_mask_zero), value >= state.cpu.Y, CPU.status_mask_carry)) });
+            }
+            case "DEC": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = value - 1;
+                var sign = (result & 64) > 0;
+                var zero = result == 0;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result % 255), sign, CPU.status_mask_sign), zero, CPU.status_mask_zero)) });
+            }
             case "DEX":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X - 1 })) });
             case "DEY":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: state.cpu.Y - 1 })) });
             case "EOR":
                 return state;
-            case "INC":
-                var inc_value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var inc_result = inc_value + 1;
-                var inc_sign = (inc_result & 64) > 0;
-                var inc_zero = inc_result == 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, inc_result % 255), inc_sign, CPU.status_mask_sign), inc_zero, CPU.status_mask_zero)) });
+            case "INC": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = value + 1;
+                var sign = (result & 64) > 0;
+                var zero = result == 0;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result % 255), sign, CPU.status_mask_sign), zero, CPU.status_mask_zero)) });
+            }
             case "INX":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X + 1 })) });
             case "INY":
@@ -5330,15 +5345,21 @@ function process_statement(state) {
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: CPU.cpu_retrieve_from_operand(state.cpu, operation.operands) })) });
             case "LDY":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: CPU.cpu_retrieve_from_operand(state.cpu, operation.operands) })) });
-            case "LSR":
-                var lsr_value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var lsr_result = (lsr_value >> 1) % 255;
-                var lsr_carry = (lsr_value & 1) > 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, lsr_result), lsr_carry, CPU.status_mask_carry)) });
+            case "LSR": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = (value >> 1) % 255;
+                var carry = (value & 128) > 0;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result), carry, CPU.status_mask_carry)) });
+            }
             case "NOP":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(state.cpu) });
-            case "ORA":
-                return state;
+            case "ORA": {
+                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
+                var result = value | state.cpu.A;
+                var sign = (result & 128) > 0;
+                var zero = result == 0;
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result }), sign, CPU.status_mask_sign), zero, CPU.status_mask_zero)) });
+            }
             case "PHA":
                 return state;
             case "PHP":
@@ -5380,6 +5401,7 @@ function process_statement(state) {
             case "TYA":
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "Y", "A")) });
             default:
+                return state;
         }
     }
     else if (statement.kind == "EOF") {
@@ -5408,6 +5430,9 @@ document.body.onload = function () {
         { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0 } } },
         { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 1 } } },
         { kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0 } } },
+        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 255 } } },
+        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 240 } } },
+        { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "EOF" }
     ];
     var state = state_zero;

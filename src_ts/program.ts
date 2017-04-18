@@ -81,113 +81,117 @@ function process_statement(state: State): State {
                 const result: number = (value << 1) % 0b11111111
                 const carry: boolean = (value & 0b10000000) > 0
 
-                return {...state, cpu: CPU.cpu_increase_pc(
-                    CPU.cpu_manipulate_sr(
-                        CPU.cpu_store_from_operand(
-                            state.cpu,
-                            operation.operands,
-                            result),
-                        carry,
-                        CPU.status_mask_carry
+                return {...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_store_from_operand(
+                                state.cpu,
+                                operation.operands,
+                                result),
+                            carry,
+                            CPU.status_mask_carry
+                        )
                     )
-                ) }
+                }
             }
 
             case "BCC": // Branch if carry clear
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_carry) == 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BCS": // Branch if carry set
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_carry) > 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BEQ": // Branch if equal
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_zero) > 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BIT": { // Bit test
                 const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                 const result: number = value & state.cpu.A
 
-                return { ...state, cpu: CPU.cpu_increase_pc(
-                    CPU.cpu_manipulate_sr(
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
                             CPU.cpu_manipulate_sr(
-                                state.cpu,
-                                result == 0,
-                                CPU.status_mask_zero
+                                CPU.cpu_manipulate_sr(
+                                    state.cpu,
+                                    result == 0,
+                                    CPU.status_mask_zero
+                                ),
+                                (result & 0b00000010) > 0,
+                                CPU.status_mask_overflow
                             ),
-                            (result & 0b00000010) > 0,
-                            CPU.status_mask_overflow
-                        ),
-                        (result & 0b10000001) > 0,
-                        CPU.status_mask_sign
+                            (result & 0b10000001) > 0,
+                            CPU.status_mask_sign
+                        )
                     )
-                ) }
+                }
             }
 
             case "BMI": // Branch if minus
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_sign) > 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BNE": // Branch if not equal
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_zero) == 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BPL": // Branch if positive
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_sign) == 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BRK": // Force interrupt
                 return state
 
             case "BVC": // Branch if overflow clear
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_overflow) == 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
 
             case "BVS": // Branch if overflow set
-                return { ...state, cpu: { ...state.cpu, cpu: 
+                return { ...state, cpu:
                     CPU.cpu_branch(
                         state.cpu,
                         (state.cpu.SR & CPU.status_mask_overflow) > 0,
                         CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                     )
-                } }
+                }
             
             case "CLC": // Clear carry
                 return { ...state,
@@ -204,21 +208,83 @@ function process_statement(state: State): State {
                     cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_overflow)) 
                 }
 
-            case "CMP": // Compare accumulator
-                // TODO: Implement this
-                return state
+            case "CMP": { // Compare accumulator
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_manipulate_sr(
+                                state.cpu,
+                                value == state.cpu.A,
+                                CPU.status_mask_zero
+                            ),
+                            value >= state.cpu.A,
+                            CPU.status_mask_carry
+                        )
+                    )
+                }
+            }
 
-            case "CPX": // Compare X register
-                // TODO: Implement this
-                return state
+            case "CPX": { // Compare X register
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_manipulate_sr(
+                                state.cpu,
+                                value == state.cpu.X,
+                                CPU.status_mask_zero
+                            ),
+                            value >= state.cpu.X,
+                            CPU.status_mask_carry
+                        )
+                    )
+                }
+            }
 
-            case "CPY": // Compare Y register
-                // TODO: Implement this
-                return state
+            case "CPY": { // Compare Y register
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_manipulate_sr(
+                                state.cpu,
+                                value == state.cpu.Y,
+                                CPU.status_mask_zero
+                            ),
+                            value >= state.cpu.Y,
+                            CPU.status_mask_carry
+                        )
+                    )
+                }
+            }
 
-            case "DEC": // Decrement memory
-                // TODO: Implement this
-                return state
+            case "DEC": { // Decrement memory
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = value - 1
+                const sign: boolean = (result & 0b1000000) > 0
+                const zero: boolean = result == 0
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_manipulate_sr(
+                                CPU.cpu_store_from_operand(
+                                    state.cpu,
+                                    operation.operands,
+                                    result % 0b11111111
+                                ),
+                                sign,
+                                CPU.status_mask_sign
+                            ),
+                            zero,
+                            CPU.status_mask_zero
+                        )
+                    )
+                }
+            }
             
             case "DEX": // Decrement X register
                 return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, X: state.cpu.X - 1 }) }
@@ -235,21 +301,23 @@ function process_statement(state: State): State {
                 const result: number = value + 1
                 const sign: boolean = (result & 0b1000000) > 0
                 const zero: boolean = result == 0
-                return { ...state, cpu: CPU.cpu_increase_pc(
-                    CPU.cpu_manipulate_sr(
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
-                            CPU.cpu_store_from_operand(
-                                state.cpu,
-                                operation.operands,
-                                result % 0b11111111
+                            CPU.cpu_manipulate_sr(
+                                CPU.cpu_store_from_operand(
+                                    state.cpu,
+                                    operation.operands,
+                                    result % 0b11111111
+                                ),
+                                sign,
+                                CPU.status_mask_sign
                             ),
-                            sign,
-                            CPU.status_mask_sign
-                        ),
-                        zero,
-                        CPU.status_mask_zero
+                            zero,
+                            CPU.status_mask_zero
+                        )
                     )
-                ) }
+                }
             }
             
             case "INX": // Increment X register
@@ -286,16 +354,18 @@ function process_statement(state: State): State {
                 const result: number = (value >> 1) % 0b11111111
                 const carry: boolean = (value & 0b10000000) > 0
 
-                return {...state, cpu: CPU.cpu_increase_pc(
-                    CPU.cpu_manipulate_sr(
-                        CPU.cpu_store_from_operand(
-                            state.cpu,
-                            operation.operands,
-                            result),
-                        carry,
-                        CPU.status_mask_carry
+                return {...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_store_from_operand(
+                                state.cpu,
+                                operation.operands,
+                                result),
+                            carry,
+                            CPU.status_mask_carry
+                        )
                     )
-                ) }
+                }
             }
 
             case "NOP": // No operation
@@ -308,17 +378,19 @@ function process_statement(state: State): State {
                 const sign: boolean = (result & 0b10000000) > 0
                 const zero: boolean = result == 0
 
-                return {...state, cpu: CPU.cpu_increase_pc(
-                    CPU.cpu_manipulate_sr(
+                return {...state, cpu:
+                    CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
-                            { ...state.cpu, A: result },
-                            sign,
-                            CPU.status_mask_sign
-                        ),
-                        zero,
-                        CPU.status_mask_zero
+                            CPU.cpu_manipulate_sr(
+                                { ...state.cpu, A: result },
+                                sign,
+                                CPU.status_mask_sign
+                            ),
+                            zero,
+                            CPU.status_mask_zero
+                        )
                     )
-                ) }
+                }
             }
 
             case "PHA": // Push accumulator
@@ -368,25 +440,37 @@ function process_statement(state: State): State {
                 }
 
             case "STA": // Store accumulator
-                return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_store_from_operand(
-                    state.cpu,
-                    operation.operands,
-                    state.cpu.A
-                )) }
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_store_from_operand(
+                            state.cpu,
+                            operation.operands,
+                            state.cpu.A
+                        )
+                    )
+                }
 
             case "STX": // Store X register
-                return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_store_from_operand(
-                    state.cpu,
-                    operation.operands,
-                    state.cpu.X
-                )) }
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_store_from_operand(
+                            state.cpu,
+                            operation.operands,
+                            state.cpu.X
+                        )
+                    )
+                }
 
             case "STY": // Store Y register
-                return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_store_from_operand(
-                    state.cpu,
-                    operation.operands,
-                    state.cpu.Y
-                )) }
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_store_from_operand(
+                            state.cpu,
+                            operation.operands,
+                            state.cpu.Y
+                        )
+                    )
+                }
             
             case "TAX": // Transfer accumulator to X register
                 return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "X")) }
