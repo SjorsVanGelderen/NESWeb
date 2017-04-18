@@ -17,7 +17,7 @@ type Flags = {
 
 const flags_zero = {
     apu_dirty: false,
-    ppu_dirty: false,
+    ppu_dirty: true, //false,
     eof: false
 }
 
@@ -101,7 +101,19 @@ function process_statement(state: State): State {
             case "AND": { // Logical AND
                 const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                 const result: number = state.cpu.A & value
-                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: result }) }
+                return { ...state, cpu:
+                    CPU.cpu_increase_pc(
+                        CPU.cpu_manipulate_sr(
+                            CPU.cpu_manipulate_sr(
+                                { ...state.cpu, A: result },
+                                result == 0,
+                                CPU.status_mask_zero
+                            ),
+                            (result & 0b10000000) > 0,
+                            CPU.status_mask_sign
+                        )
+                    )
+                }
             }
 
             case "ASL": { // Arithmetic shift left
@@ -112,12 +124,20 @@ function process_statement(state: State): State {
                 return {...state, cpu:
                     CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
-                            CPU.cpu_store_from_operand(
-                                state.cpu,
-                                operation.operands,
-                                result),
-                            carry,
-                            CPU.status_mask_carry
+                            CPU.cpu_manipulate_sr(
+                                CPU.cpu_manipulate_sr(
+                                    CPU.cpu_store_from_operand(
+                                        state.cpu,
+                                        operation.operands,
+                                        result),
+                                    carry,
+                                    CPU.status_mask_carry
+                                ),
+                                (result & 0b10000000) > 0,
+                                CPU.status_mask_sign
+                            ),
+                            result == 0,
+                            CPU.status_mask_zero
                         )
                     )
                 }
@@ -163,10 +183,10 @@ function process_statement(state: State): State {
                                     result == 0,
                                     CPU.status_mask_zero
                                 ),
-                                (result & 0b00000010) > 0,
+                                (result & 0b01000000) > 0,
                                 CPU.status_mask_overflow
                             ),
-                            (result & 0b10000001) > 0,
+                            (result & 0b10000000) > 0,
                             CPU.status_mask_sign
                         )
                     )
@@ -243,7 +263,11 @@ function process_statement(state: State): State {
                     CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
                             CPU.cpu_manipulate_sr(
-                                state.cpu,
+                                CPU.cpu_manipulate_sr(
+                                    state.cpu,
+                                    (value & 0b10000000) > 0,
+                                    CPU.status_mask_sign
+                                ),
                                 value == state.cpu.A,
                                 CPU.status_mask_zero
                             ),
@@ -261,7 +285,11 @@ function process_statement(state: State): State {
                     CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
                             CPU.cpu_manipulate_sr(
-                                state.cpu,
+                                CPU.cpu_manipulate_sr(
+                                    state.cpu,
+                                    (value & 0b10000000) > 0,
+                                    CPU.status_mask_sign
+                                ),
                                 value == state.cpu.X,
                                 CPU.status_mask_zero
                             ),
@@ -279,7 +307,11 @@ function process_statement(state: State): State {
                     CPU.cpu_increase_pc(
                         CPU.cpu_manipulate_sr(
                             CPU.cpu_manipulate_sr(
-                                state.cpu,
+                                CPU.cpu_manipulate_sr(
+                                    state.cpu,
+                                    (value & 0b10000000) > 0,
+                                    CPU.status_mask_sign
+                                ),
                                 value == state.cpu.Y,
                                 CPU.status_mask_zero
                             ),
@@ -561,14 +593,29 @@ function step(state: State): State {
 }
 
 // Recursively execute all statements
-function step_all(state: State): void {
-    const state_prime: State = step(state)
-    if(!state_prime.flags.eof) {
-        step_all(state_prime)
-    }
+function step_all(state: State, context: CanvasRenderingContext2D): void {
+    //const state_prime: State = step(state)
+    const state_prime: State = state
+    //if(!state_prime.flags.eof) {
+        if(state_prime.flags.ppu_dirty) {
+            //TODO: Perhaps prevent mutation of the canvas? Investigation required
+            let image_data = context.getImageData(0, 0, 256, 240)
+            image_data.data.forEach(
+                function (value: number, index: number, array: Uint8ClampedArray) {
+                    image_data.data[index] = Math.floor(Math.random() * 256)
+                }
+            )
+            context.putImageData(image_data, 0, 0)
+        }
+
+        step_all(state_prime, context)
+    //}
 }
 
 document.body.onload = function(): void {
+    const canvas: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("canvas")
+    const context: CanvasRenderingContext2D = canvas.getContext("2d")
+
     const seeded_mem: Immutable.List<number> = CPU.cpu_zero.MEM.set(0, 0b00010001)
 
     const seeded_ast: ASM.AST = Immutable.List<ASM.Statement>([
@@ -589,5 +636,5 @@ document.body.onload = function(): void {
     CPU.cpu_log(state.cpu)
 
     // Process all steps until EOF
-    step_all(state)
+    step_all(state, context)
 }

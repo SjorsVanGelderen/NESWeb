@@ -5238,7 +5238,7 @@ var CPU = __webpack_require__(3);
 var PPU = __webpack_require__(4);
 var flags_zero = {
     apu_dirty: false,
-    ppu_dirty: false,
+    ppu_dirty: true,
     eof: false
 };
 var state_zero = {
@@ -5275,13 +5275,13 @@ function process_statement(state) {
             case "AND": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
                 var result = state.cpu.A & value;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: result })) });
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result }), result == 0, CPU.status_mask_zero), (result & 128) > 0, CPU.status_mask_sign)) });
             }
             case "ASL": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
                 var result = (value << 1) % 255;
                 var carry = (value & 128) > 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result), carry, CPU.status_mask_carry)) });
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result), carry, CPU.status_mask_carry), (result & 128) > 0, CPU.status_mask_sign), result == 0, CPU.status_mask_zero)) });
             }
             case "BCC":
                 return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
@@ -5292,7 +5292,7 @@ function process_statement(state) {
             case "BIT": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
                 var result = value & state.cpu.A;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, result == 0, CPU.status_mask_zero), (result & 2) > 0, CPU.status_mask_overflow), (result & 129) > 0, CPU.status_mask_sign)) });
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, result == 0, CPU.status_mask_zero), (result & 64) > 0, CPU.status_mask_overflow), (result & 128) > 0, CPU.status_mask_sign)) });
             }
             case "BMI":
                 return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
@@ -5314,15 +5314,15 @@ function process_statement(state) {
                 return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_overflow)) });
             case "CMP": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, value == state.cpu.A, CPU.status_mask_zero), value >= state.cpu.A, CPU.status_mask_carry)) });
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, (value & 128) > 0, CPU.status_mask_sign), value == state.cpu.A, CPU.status_mask_zero), value >= state.cpu.A, CPU.status_mask_carry)) });
             }
             case "CPX": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, value == state.cpu.X, CPU.status_mask_zero), value >= state.cpu.X, CPU.status_mask_carry)) });
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, (value & 128) > 0, CPU.status_mask_sign), value == state.cpu.X, CPU.status_mask_zero), value >= state.cpu.X, CPU.status_mask_carry)) });
             }
             case "CPY": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, value == state.cpu.Y, CPU.status_mask_zero), value >= state.cpu.Y, CPU.status_mask_carry)) });
+                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, (value & 128) > 0, CPU.status_mask_sign), value == state.cpu.Y, CPU.status_mask_zero), value >= state.cpu.Y, CPU.status_mask_carry)) });
             }
             case "DEC": {
                 var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
@@ -5431,13 +5431,20 @@ function step(state) {
     }
     return state;
 }
-function step_all(state) {
-    var state_prime = step(state);
-    if (!state_prime.flags.eof) {
-        step_all(state_prime);
+function step_all(state, context) {
+    var state_prime = state;
+    if (state_prime.flags.ppu_dirty) {
+        var image_data_1 = context.getImageData(0, 0, 256, 240);
+        image_data_1.data.forEach(function (value, index, array) {
+            image_data_1.data[index] = Math.floor(Math.random() * 256);
+        });
+        context.putImageData(image_data_1, 0, 0);
     }
+    step_all(state_prime, context);
 }
 document.body.onload = function () {
+    var canvas = document.getElementById("canvas");
+    var context = canvas.getContext("2d");
     var seeded_mem = CPU.cpu_zero.MEM.set(0, 17);
     var seeded_ast = Immutable.List([
         { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0 } } },
@@ -5452,7 +5459,7 @@ document.body.onload = function () {
     state.ast = seeded_ast;
     state.cpu.MEM = seeded_mem;
     CPU.cpu_log(state.cpu);
-    step_all(state);
+    step_all(state, context);
 };
 
 
