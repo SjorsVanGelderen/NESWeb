@@ -57,7 +57,8 @@ export type Operation =
         | "TXA"
         | "TXS"
         | "TYA",
-        operands: Implied }
+        operands:
+	| Implied }
     | { opcode:
         | "BCC"
         | "BCS"
@@ -67,41 +68,72 @@ export type Operation =
         | "BPL"
         | "BVC"
         | "BVS",
-        operands: Relative | Label }
+        operands:
+	| Relative
+	| Label }
     | { opcode:
         | "JSR",
-        operands: Absolute }
+        operands:
+	| Absolute }
     | { opcode:
         | "JMP",
-        operands: Absolute | Indirect }
+        operands:
+	| Absolute
+	| Indirect }
     | { opcode:
         | "BIT",
-        operands: ZeroPage | Absolute }
+        operands:
+	| ZeroPage
+	| Absolute }
     | { opcode:
         | "CPX"
         | "CPY",
-        operands: Immediate | ZeroPage | Absolute }
+        operands:
+	| Immediate
+	| ZeroPage
+	| Absolute }
     | { opcode:
         | "DEC"
         | "STX"
         | "STY",
-        operands: ZeroPage | ZeroPageIndexed | Absolute }
+        operands:
+	| ZeroPage
+	| ZeroPageIndexed
+	| Absolute }
     | { opcode:
         | "LDX"
         | "LDY",
-        operands: Immediate | ZeroPage | Absolute | AbsoluteIndexed }
+        operands:
+	| Immediate
+	| ZeroPage
+	| Absolute
+	| AbsoluteIndexed }
     | { opcode:
         | "INC",
-        operands: ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed }
+        operands:
+	| ZeroPage
+	| ZeroPageIndexed
+	| Absolute
+	| AbsoluteIndexed }
     | { opcode:
         | "ASL"
         | "LSR"
         | "ROL"
         | "ROR",
-        operands: Accumulator | ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed }
+        operands:
+	| Accumulator
+	| ZeroPage
+	| ZeroPageIndexed
+	| Absolute
+	| AbsoluteIndexed }
     | { opcode:
         | "STA",
-        operands: ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed | IndirectIndexed }
+        operands:
+	| ZeroPage
+	| ZeroPageIndexed
+	| Absolute
+	| AbsoluteIndexed
+	| IndirectIndexed }
     | { opcode:
         | "ADC"
         | "AND"
@@ -110,7 +142,14 @@ export type Operation =
         | "LDA"
         | "ORA"
         | "SBC",
-        operands: Immediate | ZeroPage | ZeroPageIndexed | Absolute | AbsoluteIndexed | IndirectIndexed | IndexedIndirect }
+        operands:
+	| Immediate
+	| ZeroPage
+	| ZeroPageIndexed
+	| Absolute
+	| AbsoluteIndexed
+	| IndirectIndexed
+	| IndexedIndirect }
 
 // The AST is comprised of statements
 export type Statement = 
