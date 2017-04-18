@@ -56,39 +56,42 @@ function process_statement(state: State): State {
         const operation: ASM.Operation = statement.operation
 
         switch(operation.opcode) {
-            case "ADC": // Add with carry
-                const adc_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const adc_result: number = state.cpu.A + adc_value
+            case "ADC": { // Add with carry
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = state.cpu.A + value
                 
-                if(adc_result > 0b11111111) {
+                if(result > 0b11111111) {
                     return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr({ ...state.cpu,
-                        A: adc_result - 0b11111111
+                        A: result - 0b11111111
                     }, true, CPU.status_mask_carry)) }
                 }
                 else {
-                    return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: adc_result }) }
+                    return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: result }) }
                 }
+            }
 
-            case "AND": // Logical AND
-                const and_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const and_result: number = state.cpu.A & and_value
-                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: and_result }) }
+            case "AND": { // Logical AND
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = state.cpu.A & value
+                return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, A: result }) }
+            }
 
-            case "ASL": // Arithmetic shift left
-                const asl_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const asl_result: number = (asl_value << 1) % 0b11111111
-                const asl_carry: boolean = (asl_value & 0b10000000) > 0
+            case "ASL": { // Arithmetic shift left
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = (value << 1) % 0b11111111
+                const carry: boolean = (value & 0b10000000) > 0
 
                 return {...state, cpu: CPU.cpu_increase_pc(
                     CPU.cpu_manipulate_sr(
                         CPU.cpu_store_from_operand(
                             state.cpu,
                             operation.operands,
-                            asl_result),
-                        asl_carry,
+                            result),
+                        carry,
                         CPU.status_mask_carry
                     )
                 ) }
+            }
 
             case "BCC": // Branch if carry clear
                 return { ...state, cpu: { ...state.cpu, cpu: 
@@ -117,25 +120,26 @@ function process_statement(state: State): State {
                     )
                 } }
 
-            case "BIT": // Bit test
-                const bit_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const bit_result: number = bit_value & state.cpu.A
+            case "BIT": { // Bit test
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = value & state.cpu.A
 
                 return { ...state, cpu: CPU.cpu_increase_pc(
                     CPU.cpu_manipulate_sr(
                         CPU.cpu_manipulate_sr(
                             CPU.cpu_manipulate_sr(
                                 state.cpu,
-                                bit_result == 0,
+                                result == 0,
                                 CPU.status_mask_zero
                             ),
-                            (bit_result & 0b00000010) > 0,
+                            (result & 0b00000010) > 0,
                             CPU.status_mask_overflow
                         ),
-                        (bit_result & 0b10000001) > 0,
+                        (result & 0b10000001) > 0,
                         CPU.status_mask_sign
                     )
                 ) }
+            }
 
             case "BMI": // Branch if minus
                 return { ...state, cpu: { ...state.cpu, cpu: 
@@ -226,26 +230,27 @@ function process_statement(state: State): State {
                 // TODO: Implement this
                 return state
 
-            case "INC": // Increment memory
-                const inc_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const inc_result: number = inc_value + 1
-                const inc_sign: boolean = (inc_result & 0b1000000) > 0
-                const inc_zero: boolean = inc_result == 0
+            case "INC": { // Increment memory
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = value + 1
+                const sign: boolean = (result & 0b1000000) > 0
+                const zero: boolean = result == 0
                 return { ...state, cpu: CPU.cpu_increase_pc(
                     CPU.cpu_manipulate_sr(
                         CPU.cpu_manipulate_sr(
                             CPU.cpu_store_from_operand(
                                 state.cpu,
                                 operation.operands,
-                                inc_result % 0b11111111
+                                result % 0b11111111
                             ),
-                            inc_sign,
+                            sign,
                             CPU.status_mask_sign
                         ),
-                        inc_zero,
+                        zero,
                         CPU.status_mask_zero
                     )
                 ) }
+            }
             
             case "INX": // Increment X register
                 return { ...state, cpu: CPU.cpu_increase_pc({ ...state.cpu, X: state.cpu.X + 1 }) }
@@ -276,43 +281,45 @@ function process_statement(state: State): State {
                     Y: CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
                 }) }
 
-            case "LSR": // Logical shift right
-                const lsr_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const lsr_result: number = (lsr_value >> 1) % 0b11111111
-                const lsr_carry: boolean = (lsr_value & 0b10000000) > 0
+            case "LSR": { // Logical shift right
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = (value >> 1) % 0b11111111
+                const carry: boolean = (value & 0b10000000) > 0
 
                 return {...state, cpu: CPU.cpu_increase_pc(
                     CPU.cpu_manipulate_sr(
                         CPU.cpu_store_from_operand(
                             state.cpu,
                             operation.operands,
-                            lsr_result),
-                        lsr_carry,
+                            result),
+                        carry,
                         CPU.status_mask_carry
                     )
                 ) }
+            }
 
             case "NOP": // No operation
                 // Possibly the NOP shouldn't be in the AST to begin with?
                 return { ...state, cpu: CPU.cpu_increase_pc(state.cpu) }
 
-            case "ORA": // Inclusive OR
-                const ora_value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
-                const ora_result: number = ora_value | state.cpu.A
-                const ora_sign: boolean = (ora_result & 0b10000000) > 0
-                const ora_zero: boolean = ora_result == 0
+            case "ORA": { // Inclusive OR
+                const value: number = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)
+                const result: number = value | state.cpu.A
+                const sign: boolean = (result & 0b10000000) > 0
+                const zero: boolean = result == 0
 
                 return {...state, cpu: CPU.cpu_increase_pc(
                     CPU.cpu_manipulate_sr(
                         CPU.cpu_manipulate_sr(
-                            { ...state.cpu, A: ora_result },
-                            ora_sign,
+                            { ...state.cpu, A: result },
+                            sign,
                             CPU.status_mask_sign
                         ),
-                        ora_zero,
+                        zero,
                         CPU.status_mask_zero
                     )
                 ) }
+            }
 
             case "PHA": // Push accumulator
                 // TODO: Implement this
@@ -402,19 +409,22 @@ function process_statement(state: State): State {
             /*
             // Unsupported operations on 2A03?
             // Decimal mode doesn't seem to be implemented on this modified 6502
-            case "CLD": // Clear decimal mode
+            case "CLD": { // Clear decimal mode
                 const cpu_0: CPU.CPU = CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_carry)
                 const cpu_1: CPU.CPU = CPU.cpu_increase_pc(cpu_0)
                 return { ...state, cpu: cpu_1 }
+            }
             
-            case "SED": // Set decimal mode
+            case "SED": { // Set decimal mode
                 const cpu_0: CPU.CPU = CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_carry)
                 const cpu_1: CPU.CPU = CPU.cpu_increase_pc(cpu_0)
                 return { ...state, cpu: cpu_1 }
+            }
             */
             
             default:
                 // Should never happen, this indicates an unknown opcode
+                return state
         }
     }
     else if(statement.kind == "EOF") {
