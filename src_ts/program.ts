@@ -608,7 +608,7 @@ function step_all(state: State, context: CanvasRenderingContext2D): void {
             context.putImageData(image_data, 0, 0)
         }
 
-        step_all(state_prime, context)
+        window.requestAnimationFrame(function () { step_all(state_prime, context) })
     //}
 }
 

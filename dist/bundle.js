@@ -5440,7 +5440,7 @@ function step_all(state, context) {
         });
         context.putImageData(image_data_1, 0, 0);
     }
-    step_all(state_prime, context);
+    window.requestAnimationFrame(function () { step_all(state_prime, context); });
 }
 document.body.onload = function () {
     var canvas = document.getElementById("canvas");

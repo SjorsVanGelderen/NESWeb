@@ -56,7 +56,7 @@ export const cpu_zero: CPU = {
     A:   0,
     X:   0,
     Y:   0,
-    SP:  0,
+    SP:  0xFF,
     PC:  0,
     SR:  0,
     MEM: mem_zero
@@ -75,6 +75,11 @@ export function cpu_log(cpu: CPU): void {
     }
     //console.log(JSON.stringify(cpu, replacer)) // Without memory
     console.log(JSON.stringify(cpu)) // With memory
+}
+
+// Reset the CPU state
+export function cpu_reset(cpu: CPU): CPU {
+    return cpu_zero
 }
 
 // Increase the PC by 1
@@ -118,6 +123,30 @@ export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" 
     else {
         return { ...cpu, SP: register_value }
     }
+}
+
+// Push a value onto the stack
+export function cpu_push_stack(cpu: CPU, value: number): CPU {
+    if(cpu.SP > 0) {
+        return { ...cpu,
+            SP: sp_prime
+            MEM: cpu.MEM.set(sp_prime, )
+        }
+    }
+    const sp_prime: number = cpu.SP > 0 ? cpu.SP - 1 : cpu.SP
+    
+}
+
+// Pop a value from the stack
+export function cpu_pop_stack(cpu: CPU, value: number): CPU {
+    const sp_prime: number = cpu.SP < 0xFF ? cpu.SP + 1 : cpu.SP
+    return { ...cpu, SP: sp_prime }
+}
+
+// Peek a value on the stack
+export function cpu_peek_stack(cpu: CPU): number {
+    // TODO: Implement this
+    return 0
 }
 
 // Retrieves a value from an address as determined by an addressing mode
