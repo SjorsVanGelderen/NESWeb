@@ -551,8 +551,7 @@ function process_statement(state: State): State {
                 return { ...state, cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "Y", "A")) }
 
             /*
-            // Unsupported operations on 2A03?
-            // Decimal mode doesn't seem to be implemented on this modified 6502
+            // Decimal mode isn't supported on 2A03
             case "CLD": { // Clear decimal mode
                 const cpu_0: CPU.CPU = CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_carry)
                 const cpu_1: CPU.CPU = CPU.cpu_increase_pc(cpu_0)
@@ -568,6 +567,7 @@ function process_statement(state: State): State {
             
             default:
                 // Should never happen, this indicates an unknown opcode
+                // TODO: Handle more elegantly
                 return state
         }
     }

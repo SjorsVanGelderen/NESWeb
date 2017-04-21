@@ -6,9 +6,9 @@
 /******/ 	function __webpack_require__(moduleId) {
 /******/
 /******/ 		// Check if module is in cache
-/******/ 		if(installedModules[moduleId])
+/******/ 		if(installedModules[moduleId]) {
 /******/ 			return installedModules[moduleId].exports;
-/******/
+/******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = installedModules[moduleId] = {
 /******/ 			i: moduleId,
@@ -5056,27 +5056,6 @@
 
 "use strict";
 
-exports.__esModule = true;
-exports.apu_zero = {};
-
-
-/***/ }),
-/* 2 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-exports.__esModule = true;
-var Immutable = __webpack_require__(0);
-exports.ast_zero = Immutable.List();
-
-
-/***/ }),
-/* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
 var __assign = (this && this.__assign) || Object.assign || function(t) {
     for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
@@ -5093,9 +5072,9 @@ exports.status_mask_breakpoint = 16;
 exports.status_mask_interrupt = 4;
 exports.status_mask_zero = 2;
 exports.status_mask_carry = 1;
-function mem_zero_generator(accumulator) {
-    if (accumulator.count < 65535) {
-        return mem_zero_generator({
+function mem_zero_generator(amount, accumulator) {
+    if (accumulator.count < amount) {
+        return mem_zero_generator(amount, {
             list: accumulator.list.push(0),
             count: accumulator.count + 1
         });
@@ -5104,7 +5083,8 @@ function mem_zero_generator(accumulator) {
         return accumulator.list;
     }
 }
-var mem_zero = mem_zero_generator({
+exports.mem_zero_generator = mem_zero_generator;
+var mem_zero = mem_zero_generator(65535, {
     list: Immutable.List(),
     count: 0
 });
@@ -5129,6 +5109,10 @@ function cpu_log(cpu) {
     console.log(JSON.stringify(cpu));
 }
 exports.cpu_log = cpu_log;
+function cpu_reset(cpu) {
+    return exports.cpu_zero;
+}
+exports.cpu_reset = cpu_reset;
 function cpu_increase_pc(cpu) {
     return __assign({}, cpu, { PC: cpu.PC + 1 });
 }
@@ -5167,6 +5151,20 @@ function cpu_transfer(cpu, left, right) {
     }
 }
 exports.cpu_transfer = cpu_transfer;
+function cpu_push_stack(cpu, value) {
+    var sp_prime = (cpu.SP - 1) % 0xFF;
+    return __assign({}, cpu, { SP: cpu.SP + 1, MEM: cpu.MEM.set(cpu.SP, value) });
+}
+exports.cpu_push_stack = cpu_push_stack;
+function cpu_pop_stack(cpu) {
+    var sp_prime = (cpu.SP + 1) % 0xFF;
+    return __assign({}, cpu, { SP: sp_prime, MEM: cpu.MEM.set(cpu.SP, 0) });
+}
+exports.cpu_pop_stack = cpu_pop_stack;
+function cpu_peek_stack(cpu) {
+    return cpu.MEM.get(cpu.SP);
+}
+exports.cpu_peek_stack = cpu_peek_stack;
 function cpu_retrieve_from_operand(cpu, operand) {
     switch (operand.kind) {
         case "accumulator":
@@ -5207,13 +5205,42 @@ exports.cpu_store_from_operand = cpu_store_from_operand;
 
 
 /***/ }),
+/* 2 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+exports.apu_zero = {};
+
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+var Immutable = __webpack_require__(0);
+exports.ast_zero = Immutable.List();
+
+
+/***/ }),
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 exports.__esModule = true;
-exports.ppu_zero = {};
+var Immutable = __webpack_require__(0);
+var CPU = __webpack_require__(1);
+var mem_zero = CPU.mem_zero_generator(10240, {
+    list: Immutable.List(),
+    count: 0
+});
+exports.ppu_zero = {
+    MEM: mem_zero
+};
 
 
 /***/ }),
@@ -5232,9 +5259,9 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 };
 exports.__esModule = true;
 var Immutable = __webpack_require__(0);
-var APU = __webpack_require__(1);
-var ASM = __webpack_require__(2);
-var CPU = __webpack_require__(3);
+var APU = __webpack_require__(2);
+var ASM = __webpack_require__(3);
+var CPU = __webpack_require__(1);
 var PPU = __webpack_require__(4);
 var flags_zero = {
     apu_dirty: false,

@@ -10,6 +10,7 @@ export const status_mask_sign: number       = 0b10000000
 export const status_mask_overflow: number   = 0b01000000
 // There is an unused bit here
 export const status_mask_breakpoint: number = 0b00010000
+// The decimal mode is not supported on the 2A03
 //export const status_mask_decimal: number  = 0b00001000
 export const status_mask_interrupt: number  = 0b00000100
 export const status_mask_zero: number       = 0b00000010
@@ -32,12 +33,12 @@ export type CPU = {
     but for now I'd like to avoid inaccuracy issues
     relating to floating point representations
 */
-function mem_zero_generator(accumulator: {
+export function mem_zero_generator(amount: number, accumulator: {
         list: Immutable.List<number>,
         count: number
     }): Immutable.List<number> {
-    if(accumulator.count < 65535) {
-        return mem_zero_generator({
+    if(accumulator.count < amount) {
+        return mem_zero_generator(amount, {
             list: accumulator.list.push(0),
             count: accumulator.count + 1
         })
@@ -47,16 +48,18 @@ function mem_zero_generator(accumulator: {
     }
 }
 
-const mem_zero: Immutable.List<number> = mem_zero_generator({
+// Base MEM state
+const mem_zero: Immutable.List<number> = mem_zero_generator(65535, {
     list: Immutable.List<number>(),
     count: 0
 })
 
+// Base CPU state
 export const cpu_zero: CPU = {
     A:   0,
     X:   0,
     Y:   0,
-    SP:  0xFF,
+    SP:  0,
     PC:  0,
     SR:  0,
     MEM: mem_zero
@@ -127,26 +130,25 @@ export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" 
 
 // Push a value onto the stack
 export function cpu_push_stack(cpu: CPU, value: number): CPU {
-    if(cpu.SP > 0) {
-        return { ...cpu,
-            SP: sp_prime
-            MEM: cpu.MEM.set(sp_prime, )
-        }
+    const sp_prime: number = (cpu.SP - 1) % 0xFF
+    return { ...cpu,
+        SP: cpu.SP + 1,
+        MEM: cpu.MEM.set(cpu.SP, value)
     }
-    const sp_prime: number = cpu.SP > 0 ? cpu.SP - 1 : cpu.SP
-    
 }
 
 // Pop a value from the stack
-export function cpu_pop_stack(cpu: CPU, value: number): CPU {
-    const sp_prime: number = cpu.SP < 0xFF ? cpu.SP + 1 : cpu.SP
-    return { ...cpu, SP: sp_prime }
+export function cpu_pop_stack(cpu: CPU): CPU {
+    const sp_prime: number = (cpu.SP + 1) % 0xFF
+    return { ...cpu,
+        SP: sp_prime,
+        MEM: cpu.MEM.set(cpu.SP, 0)
+    }
 }
 
 // Peek a value on the stack
 export function cpu_peek_stack(cpu: CPU): number {
-    // TODO: Implement this
-    return 0
+    return cpu.MEM.get(cpu.SP)
 }
 
 // Retrieves a value from an address as determined by an addressing mode
