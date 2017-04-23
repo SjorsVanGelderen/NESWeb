@@ -29,11 +29,11 @@ function initialize(canvas?: HTMLCanvasElement): void {
 
     // Seed the AST with a dummy program
     const seeded_ast: ASM.AST = Immutable.List<ASM.Statement>([
-        //{ kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0b00000000 } } },
-        //{ kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 0b00000001 } } },
-        //{ kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0b00000000 } } },
-        //{ kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11111111 } } },
-        //{ kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11110000 } } },
+        { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0b00000000 } } },
+        { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 0b00000001 } } },
+        { kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0b00000000 } } },
+        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11111111 } } },
+        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 0b11110000 } } },
         { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "EOF" }
     ])
@@ -64,7 +64,7 @@ function run(state: State.State, context?: CanvasRenderingContext2D): void {
         if(!state_prime.flags.eof) {
             if(state_prime.flags.ppu_dirty) {
                 if(context) {
-                    PPU.ppu_flush_dirty_pixels(state.PPU, context)
+                    PPU.ppu_flush_dirty_pixels(context)(state.PPU)
                 }
             }
 

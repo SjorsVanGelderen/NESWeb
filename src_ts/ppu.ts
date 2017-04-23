@@ -40,7 +40,7 @@ export const ppu_zero: PPU = {
 }
 
 // Store a value in the memory of the PPU
-export function ppu_store(ppu: PPU, index: number, value: number): PPU {
+export const ppu_store = (index: number, value: number) => (ppu: PPU) => {
     return { ...ppu,
         MEM: ppu.MEM.set(index, value),
         dirty_pixels: ppu.dirty_pixels.push(index)
@@ -48,12 +48,12 @@ export function ppu_store(ppu: PPU, index: number, value: number): PPU {
 }
 
 // Retrieve a value from the memory of the PPU
-export function ppu_retrieve(ppu: PPU, index: number): number {
+export const ppu_retrieve = (index: number) => (ppu: PPU) => {
     return ppu.MEM.get(index)
 }
 
 // Update the canvas buffer to match the PPU state
-export function ppu_flush_dirty_pixels(ppu: PPU, context: CanvasRenderingContext2D): void {
+export const ppu_flush_dirty_pixels = (context: CanvasRenderingContext2D) => (ppu: PPU) => {
     let context_data = context.getImageData(0, 0, 256, 240)
     ppu.dirty_pixels.forEach(function(index: number) {
         context_data.data[index] = 0

@@ -79,40 +79,32 @@ export function cpu_increase_pc(cpu: CPU): CPU {
 
 // Branch depending on the predicate
 export const cpu_branch = (predicate: boolean, offset: number) => (cpu: CPU) => {
-    if(predicate) {
-        return { ...cpu, PC: cpu.PC + offset }
-    }
-    else {
-        return cpu_increase_pc(cpu)
-    }
+    return { ...cpu, PC: predicate ? (cpu.PC + offset) : (cpu.PC + 1) }
 }
 
 // Manipulate a flag in the SR
 export const cpu_manipulate_sr = (enable: boolean, mask: number) => (cpu: CPU) => {
-    if(enable) {
-        return { ...cpu, SR: cpu.SR | mask }
-    }
-    else {
-        return { ...cpu, SR: cpu.SR & (~ mask) }
-    }
+    return { ...cpu, SR: enable ? (cpu.SR | mask) : (cpu.SR & (~ mask)) }
 }
 
 // Transfer a value between registers
-export const cpu_transfer = (left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") => (cpu: CPU) => {
-    const register_value: number = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y)
+export const cpu_transfer =
+    (left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") => (cpu: CPU) => {
+    const register_value: number =
+        left == "A" ? cpu.A : (
+        left == "X" ? cpu.X : (
+        left == "Y" ? cpu.Y : 
+                      cpu.SP
+        ))
 
-    if(right == "A") {
-        return { ...cpu, A: register_value }
-    }
-    else if(right == "X") {
-        return { ...cpu, X: register_value }
-    }
-    else if(right == "Y") {
-        return { ...cpu, Y: register_value }
-    }
-    else {
-        return { ...cpu, SP: register_value }
-    }
+    const result: CPU =
+        right == "A" ? { ...cpu, A:  register_value } : (
+        right == "X" ? { ...cpu, X:  register_value } : (
+        right == "Y" ? { ...cpu, Y:  register_value } : 
+                       { ...cpu, SP: register_value }
+        ))
+    
+    return result
 }
 
 // Push a value onto the stack
@@ -176,15 +168,12 @@ export const cpu_retrieve_from_operand =
             return cpu.MEM.get(operand.arguments) + cpu.Y
         
         case "relative":
-            return cpu.PC + operand.arguments
-        
-        default:
-            // Should never happen
-            return 0
+            return cpu.MEM.get(cpu.PC + operand.arguments)
     }
 }
 
 // Stores a value to an address as determined by an addressing mode
+// TODO: Extensively review and test
 export const cpu_store_from_operand =
     (operand:
     | ASM.Accumulator
@@ -208,6 +197,8 @@ export const cpu_store_from_operand =
 
         default:
             // TODO: Implement missing cases
+            Debug.log("error", "Missing implementation for storing with operand: "
+                               + JSON.stringify(operand))
             return cpu
     }
 }
@@ -225,6 +216,9 @@ export function process_statement(state: State.State): State.State {
             case "ADC": { // Add with carry
                 const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
                 const result: number = state.CPU.A + value
+
+                // TODO: Fix incorrect flag manipulations
+                Debug.log("warning", "ADC flag manipulation is still incorrect")
 
                 if(result > 0b11111111) {
                     const cpu_prime: CPU =
@@ -348,12 +342,25 @@ export function process_statement(state: State.State): State.State {
                 return { ...state, CPU: cpu_prime }
             }
 
-            /*
             case "BRK": { // Force interrupt
-                // TODO: Implement this
-                return state
+                Debug.log("warning", "BRK operation is not completely implemented!")
+                
+                /*
+                    It's questionable whether the SR and PC should be pushed
+                    onto the stack as a singular unit, since they are both really
+                    composed of two bytes rather than a single 16-bit value
+                */
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(true, status_mask_breakpoint)(
+                    cpu_push_stack(state.CPU.SR)(
+                    cpu_push_stack(state.CPU.PC)(
+                        state.CPU
+                    ))))
+
+                return { ...state, CPU: cpu_prime }
             }
-            */
 
             case "BVC": { // Branch if overflow clear
                 const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
@@ -466,12 +473,19 @@ export function process_statement(state: State.State): State.State {
             case "DEY": // Decrement Y register
                 return { ...state, cpu: cpu_increase_pc({ ...state.CPU, Y: state.CPU.Y - 1 }) }
 
-            /*
             case "EOR": { // Exclusive OR
-                // TODO: Implement this
-                return state
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = state.CPU.A ^ value
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(result == 0,               status_mask_zero)(
+                    cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_sign)(
+                            state.CPU
+                    )))
+
+                return { ...state, CPU: { ...cpu_prime, A: result } }
             }
-            */
 
             case "INC": { // Increment memory
                 const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
