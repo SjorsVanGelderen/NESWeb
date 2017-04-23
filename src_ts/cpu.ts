@@ -3,6 +3,8 @@
 */
 
 import Immutable = require("immutable")
+import * as Debug from "./debug"
+import * as State from "./state"
 import * as ASM from "./asm"
 
 // Status register bitmasks
@@ -65,21 +67,6 @@ export const cpu_zero: CPU = {
     MEM: mem_zero
 }
 
-// Log the CPU state
-export function cpu_log(cpu: CPU): void {
-    // Replacer to remove memory from the string representation
-    function replacer(key: any, value: any): any {
-        if(key == "MEM") {
-            return undefined
-        }
-        else {
-            return value
-        }
-    }
-    //console.log(JSON.stringify(cpu, replacer)) // Without memory
-    console.log(JSON.stringify(cpu)) // With memory
-}
-
 // Reset the CPU state
 export function cpu_reset(cpu: CPU): CPU {
     return cpu_zero
@@ -91,7 +78,7 @@ export function cpu_increase_pc(cpu: CPU): CPU {
 }
 
 // Branch depending on the predicate
-export function cpu_branch(cpu: CPU, predicate: boolean, offset: number) {
+export const cpu_branch = (predicate: boolean, offset: number) => (cpu: CPU) => {
     if(predicate) {
         return { ...cpu, PC: cpu.PC + offset }
     }
@@ -101,7 +88,7 @@ export function cpu_branch(cpu: CPU, predicate: boolean, offset: number) {
 }
 
 // Manipulate a flag in the SR
-export function cpu_manipulate_sr(cpu: CPU, enable: boolean, mask: number): CPU {
+export const cpu_manipulate_sr = (enable: boolean, mask: number) => (cpu: CPU) => {
     if(enable) {
         return { ...cpu, SR: cpu.SR | mask }
     }
@@ -111,7 +98,7 @@ export function cpu_manipulate_sr(cpu: CPU, enable: boolean, mask: number): CPU 
 }
 
 // Transfer a value between registers
-export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") : CPU {
+export const cpu_transfer = (left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") => (cpu: CPU) => {
     const register_value: number = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y)
 
     if(right == "A") {
@@ -129,7 +116,7 @@ export function cpu_transfer(cpu: CPU, left: "A" | "X" | "Y" | "SP", right: "A" 
 }
 
 // Push a value onto the stack
-export function cpu_push_stack(cpu: CPU, value: number): CPU {
+export const cpu_push_stack = (value: number) => (cpu: CPU) => {
     const sp_prime: number = (cpu.SP - 1) % 0xFF
     return { ...cpu,
         SP: cpu.SP + 1,
@@ -153,19 +140,19 @@ export function cpu_peek_stack(cpu: CPU): number {
 
 // Retrieves a value from an address as determined by an addressing mode
 // TODO: Extensively review and test
-export function cpu_retrieve_from_operand(cpu: CPU,
-                               operand:
-                               | ASM.Accumulator
-                               | ASM.Immediate
-                               | ASM.ZeroPage
-                               | ASM.ZeroPageIndexed
-                               | ASM.Absolute
-                               | ASM.AbsoluteIndexed
-                               | ASM.Indirect
-                               | ASM.IndexedIndirect
-                               | ASM.IndirectIndexed
-                               | ASM.Relative
-                               | ASM.Label): number {
+export const cpu_retrieve_from_operand =
+    (operand:
+    | ASM.Accumulator
+    | ASM.Immediate
+    | ASM.ZeroPage
+    | ASM.ZeroPageIndexed
+    | ASM.Absolute
+    | ASM.AbsoluteIndexed
+    | ASM.Indirect
+    | ASM.IndexedIndirect
+    | ASM.IndirectIndexed
+    | ASM.Relative
+    | ASM.Label) => (cpu: CPU) => {
     switch(operand.kind) {
         case "accumulator":
             return cpu.A
@@ -198,18 +185,18 @@ export function cpu_retrieve_from_operand(cpu: CPU,
 }
 
 // Stores a value to an address as determined by an addressing mode
-export function cpu_store_from_operand(cpu: CPU,
-                            operand:
-                            | ASM.Accumulator
-                            | ASM.ZeroPage
-                            | ASM.ZeroPageIndexed
-                            | ASM.Absolute
-                            | ASM.AbsoluteIndexed
-                            | ASM.Indirect
-                            | ASM.IndexedIndirect
-                            | ASM.IndirectIndexed
-                            | ASM.Relative,
-                            value: number): CPU {
+export const cpu_store_from_operand =
+    (operand:
+    | ASM.Accumulator
+    | ASM.ZeroPage
+    | ASM.ZeroPageIndexed
+    | ASM.Absolute
+    | ASM.AbsoluteIndexed
+    | ASM.Indirect
+    | ASM.IndexedIndirect
+    | ASM.IndirectIndexed
+    | ASM.Relative,
+    value: number) => (cpu: CPU) => {
     switch (operand.kind) {
         case "accumulator":
             return { ...cpu, A: value }
@@ -222,5 +209,474 @@ export function cpu_store_from_operand(cpu: CPU,
         default:
             // TODO: Implement missing cases
             return cpu
+    }
+}
+
+// Process a single statement according to the PC
+// TODO: Extensively review and test
+export function process_statement(state: State.State): State.State {
+    const statement: ASM.Statement = state.AST.get(state.CPU.PC)
+    Debug.log_statement(state)
+
+    if(statement.kind == "operation") {
+        const operation: ASM.Operation = statement.operation
+
+        switch(operation.opcode) {
+            case "ADC": { // Add with carry
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = state.CPU.A + value
+
+                if(result > 0b11111111) {
+                    const cpu_prime: CPU =
+                        cpu_increase_pc(
+                        cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_overflow)(
+                        cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_sign)(
+                        cpu_manipulate_sr(result == 0,               status_mask_zero)(
+                        cpu_manipulate_sr(true,                      status_mask_carry)(
+                            { ...state.CPU, A: result - 0b11111111 }
+                        )))))
+                    
+                    return { ...state, CPU: cpu_prime }
+                }
+                else {
+                    const cpu_prime: CPU =
+                        cpu_increase_pc(
+                        cpu_manipulate_sr(result == 0, status_mask_zero)(
+                            { ...state.CPU, A: result }
+                        ))
+                    
+                    return { ...state, CPU: cpu_prime }
+                }
+            }
+
+            case "AND": { // Logical AND
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = state.CPU.A & value
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_sign)(
+                    cpu_manipulate_sr(result == 0,               status_mask_zero)(
+                        { ...state.CPU, A: result }
+                    )))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "ASL": { // Arithmetic shift left
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = (value << 1) % 0b11111111
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(result == 0,               status_mask_zero)(
+                    cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_sign)(
+                    cpu_manipulate_sr((value & 0b10000000) > 0,  status_mask_carry)(
+                    cpu_store_from_operand(operation.operands, result)(
+                        state.CPU
+                    )))))
+
+                return {...state, CPU: cpu_prime }
+            }
+
+            case "BCC": { // Branch if carry clear
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_carry) == 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "BCS": { // Branch if carry set
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_carry) > 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "BEQ": { // Branch if equal
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_zero) > 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+            
+            case "BIT": { // Bit test
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = value & state.CPU.A
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_sign)(
+                    cpu_manipulate_sr((result & 0b01000000) > 0, status_mask_overflow)(
+                    cpu_manipulate_sr(result == 0,               status_mask_zero)(
+                        state.CPU
+                    ))))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "BMI": { // Branch if minus
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_sign) > 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "BNE": { // Branch if not equal
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_zero) == 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "BPL": { // Branch if positive
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_sign) == 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            /*
+            case "BRK": { // Force interrupt
+                // TODO: Implement this
+                return state
+            }
+            */
+
+            case "BVC": { // Branch if overflow clear
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_overflow) == 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "BVS": { // Branch if overflow set
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_branch((state.CPU.SR & status_mask_overflow) > 0, value)(state.CPU)
+
+                return { ...state, CPU: cpu_prime }
+            }
+            
+            case "CLC": { // Clear carry
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(false, status_mask_carry)(
+                        state.CPU
+                    ))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "CLI": { // Clear interrupt disable
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(false, status_mask_interrupt)(
+                        state.CPU
+                    ))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "CLV": { // Clear overflow
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(false, status_mask_overflow)(
+                        state.CPU
+                    ))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "CMP": { // Compare accumulator
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(value >= state.CPU.A,     status_mask_carry)(
+                    cpu_manipulate_sr(value == state.CPU.A,     status_mask_zero)(
+                    cpu_manipulate_sr((value & 0b10000000) > 0, status_mask_sign)(
+                        state.CPU
+                    ))))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "CPX": { // Compare X register
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(value >= state.CPU.X,     status_mask_carry)(
+                    cpu_manipulate_sr(value == state.CPU.X,     status_mask_zero)(
+                    cpu_manipulate_sr((value & 0b10000000) > 0, status_mask_sign)(
+                        state.CPU
+                    ))))
+
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "CPY": { // Compare Y register
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(value >= state.CPU.Y,     status_mask_carry)(
+                    cpu_manipulate_sr(value == state.CPU.Y,     status_mask_zero)(
+                    cpu_manipulate_sr((value & 0b10000000) > 0, status_mask_sign)(
+                        state.CPU
+                    ))))
+                
+                return { ...state, CPU: cpu_prime }
+            }
+
+            case "DEC": { // Decrement memory
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = value - 1
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(result == 0,              status_mask_zero)(
+                    cpu_manipulate_sr((result & 0b1000000) > 0, status_mask_sign)(
+                    cpu_store_from_operand(operation.operands, result % 0b11111111)(
+                        state.CPU
+                    ))))
+
+                return { ...state, CPU: cpu_prime }
+            }
+            
+            case "DEX": // Decrement X register
+                return { ...state, cpu: cpu_increase_pc({ ...state.CPU, X: state.CPU.X - 1 }) }
+
+            case "DEY": // Decrement Y register
+                return { ...state, cpu: cpu_increase_pc({ ...state.CPU, Y: state.CPU.Y - 1 }) }
+
+            /*
+            case "EOR": { // Exclusive OR
+                // TODO: Implement this
+                return state
+            }
+            */
+
+            case "INC": { // Increment memory
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = value + 1
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(result == 0,              status_mask_zero)(
+                    cpu_manipulate_sr((result & 0b1000000) > 0, status_mask_sign)(
+                    cpu_store_from_operand(operation.operands, result % 0b11111111)(
+                        state.CPU
+                    ))))
+
+                return { ...state, CPU: cpu_prime }
+            }
+            
+            case "INX": // Increment X register
+                return { ...state, CPU: cpu_increase_pc({ ...state.CPU, X: state.CPU.X + 1 }) }
+
+            case "INY": // Increment Y register
+                return { ...state, CPU: cpu_increase_pc({ ...state.CPU, Y: state.CPU.Y + 1 }) }
+
+            /*
+            case "JMP": // Jump
+                // TODO: Implement this
+                return state
+
+            case "JSR": // Jump to subroutine
+                // TODO: Implement this
+                return state
+            */
+
+            case "LDA": // Load accumulator
+                return { ...state, CPU: cpu_increase_pc({ ...state.CPU,
+                    A: cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                }) }
+
+            case "LDX": // Load X register
+                return { ...state, CPU: cpu_increase_pc({ ...state.CPU,
+                    X: cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                }) }
+
+            case "LDY": // Load Y register
+                return { ...state, CPU: cpu_increase_pc({ ...state.CPU,
+                    Y: cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                }) }
+
+            case "LSR": { // Logical shift right
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = (value >> 1) % 0b11111111
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr((value & 0b10000000) > 0, status_mask_carry)(
+                    cpu_store_from_operand(operation.operands, result)(
+                        state.CPU
+                    )))
+
+                return {...state, CPU: cpu_prime }
+            }
+
+            case "NOP": // No operation
+                // Possibly the NOP shouldn't be in the AST to begin with?
+                return { ...state, CPU: cpu_increase_pc(state.CPU) }
+
+            case "ORA": { // Inclusive OR
+                const value: number = cpu_retrieve_from_operand(operation.operands)(state.CPU)
+                const result: number = value | state.CPU.A
+
+                const cpu_prime: CPU =
+                    cpu_increase_pc(
+                    cpu_manipulate_sr(result == 0,               status_mask_zero)(
+                    cpu_manipulate_sr((result & 0b10000000) > 0, status_mask_sign)(
+                        state.CPU
+                    )))
+
+                return {...state, CPU: cpu_prime }
+            }
+
+            /*
+            case "PHA": // Push accumulator
+                // TODO: Implement this
+                return state
+
+            case "PHP": // Push processor status
+                // TODO: Implement this
+                return state
+
+            case "PLA": // Pull accumulator
+                // TODO: Implement this
+                return state
+
+            case "PLP": // Pull processor status
+                // TODO: Implement this
+                return state
+
+            case "ROL": // Rotate left
+                // TODO: Implement this
+                return state
+
+            case "ROR": // Rotate right
+                // TODO: Implement this
+                return state
+
+            case "RTI": // Return from interrupt
+                // TODO: Implement this
+                return state
+
+            case "RTS": // Return from subroutine
+                // TODO: Implement this
+                return state
+
+            case "SBC": // Subtract with carry
+                // TODO: Implement this
+                return state
+            */
+
+            case "SEC": // Set carry
+                return { ...state, CPU: cpu_increase_pc(
+                    cpu_manipulate_sr(true, status_mask_carry)(state.CPU)
+                ) }
+
+            case "SEI": // Set interrupt disable
+                return { ...state, CPU: cpu_increase_pc(
+                    cpu_manipulate_sr(true, status_mask_interrupt)(state.CPU)
+                ) }
+
+            case "STA": // Store accumulator
+                return { ...state, CPU: cpu_increase_pc(
+                    cpu_store_from_operand(operation.operands, state.CPU.A)(
+                        state.CPU
+                )) }
+
+            case "STX": // Store X register
+                return { ...state, CPU: cpu_increase_pc(
+                    cpu_store_from_operand(operation.operands, state.CPU.X)(
+                        state.CPU
+                )) }
+
+            case "STY": // Store Y register
+                return { ...state, CPU: cpu_increase_pc(
+                    cpu_store_from_operand(operation.operands, state.CPU.Y)(
+                        state.CPU
+                )) }
+            
+            case "TAX": // Transfer accumulator to X register
+                return { ...state, CPU: cpu_increase_pc(cpu_transfer("A", "X")(state.CPU)) }
+
+            case "TAY": // Transfer accumulator to Y register
+                return { ...state, CPU: cpu_increase_pc(cpu_transfer("A", "Y")(state.CPU)) }
+
+            case "TSX": // Transfer stack pointer to X register
+                return { ...state, CPU: cpu_increase_pc(cpu_transfer("SP", "X")(state.CPU)) }
+
+            case "TXA": // Transfer X register to accumulator
+                return { ...state, CPU: cpu_increase_pc(cpu_transfer("X", "A")(state.CPU)) }
+
+            case "TXS": // Transfer X register to stack pointer
+                return { ...state, CPU: cpu_increase_pc(cpu_transfer("X", "SP")(state.CPU)) }
+
+            case "TYA": // Transfer Y register to accumulator
+                return { ...state, CPU: cpu_increase_pc(cpu_transfer("Y", "A")(state.CPU)) }
+
+            /*
+            // Decimal mode isn't supported on 2A03
+            case "CLD": { // Clear decimal mode
+                const cpu_0: CPU = cpu_manipulate_sr(state.cpu, false, status_mask_carry)
+                const cpu_1: CPU = cpu_increase_pc(cpu_0)
+                return { ...state, cpu: cpu_1 }
+            }
+            
+            case "SED": { // Set decimal mode
+                const cpu_0: CPU = cpu_manipulate_sr(state.cpu, true, status_mask_carry)
+                const cpu_1: CPU = cpu_increase_pc(cpu_0)
+                return { ...state, cpu: cpu_1 }
+            }
+            */
+            
+            default:
+                Debug.log("error", "Unrecognized opcode: " + JSON.stringify(operation.opcode))
+                return { ...state,
+                    flags: { ...state.flags, valid: false }
+                }
+        }
+    }
+    else if(statement.kind == "EOF") {
+        return { ...state,
+            flags: { ...state.flags, eof: true }
+        }
+    }
+}
+
+// Process a single statement
+export function step(state: State.State): State.State {
+    if(state.CPU.PC >= 0 && state.CPU.PC < state.AST.count()) {
+        // Process the statement
+        Debug.log_statement(state)
+        const state_prime = process_statement(state)
+        Debug.cpu_log(state_prime.CPU)
+        return state_prime
+    }
+    else {
+        Debug.log("error", "PC out of bounds of the AST!")
+        return { ...state,
+            flags: { ...state.flags, valid: false }
+        }
     }
 }

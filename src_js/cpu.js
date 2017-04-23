@@ -16,7 +16,7 @@ var NES;
         var status_mask_interrupt = 4;
         var status_mask_zero = 2;
         var status_mask_carry = 1;
-        CPU.cpu_zero = {
+        cpu_zero = {
             A: 0,
             X: 0,
             Y: 0,
@@ -25,8 +25,8 @@ var NES;
             SR: 0
         };
         function cpu_increase_pc(cpu) {
-            return __assign({ PC: cpu.PC + 1 }, cpu);
+            return __assign({ PC: PC + 1 }, cpu);
         }
     })(CPU || (CPU = {}));
 })(NES || (NES = {}));
-//# sourceMappingURL=cpu.js.map
+//# sourceMappingURL=js.map

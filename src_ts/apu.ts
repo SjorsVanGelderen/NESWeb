@@ -6,4 +6,5 @@
 // The APU state
 export type APU = {}
 
+// Base APU state
 export const apu_zero = {}

@@ -7,7 +7,15 @@ import * as CPU from "./cpu"
 
 // The PPU state
 export type PPU = {
-    MEM: Immutable.List<number>,
+    CTRL:    number
+    MASK:    number
+    STATUS:  number
+    OAMADDR: number
+    OAMDATA: number
+    SCROLL:  number
+    ADDR:    number
+    OAMDMA:  number
+    MEM: Immutable.List<number>
     dirty_pixels: Immutable.List<number>
 }
 
@@ -17,12 +25,16 @@ const mem_zero: Immutable.List<number> = CPU.mem_zero_generator(10240, {
     count: 0
 })
 
-const random_mem: Immutable.List<number> = mem_zero.map(function(key: number, value: number) {
-    return 0
-})
-
 // Base PPU state
 export const ppu_zero: PPU = {
+    CTRL:    0,
+    MASK:    0,
+    STATUS:  0,
+    OAMADDR: 0,
+    OAMDATA: 0,
+    SCROLL:  0,
+    ADDR:    0,
+    OAMDMA:  0,
     MEM: mem_zero,
     dirty_pixels: Immutable.List<number>()
 }

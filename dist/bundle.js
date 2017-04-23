@@ -63,7 +63,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 5);
+/******/ 	return __webpack_require__(__webpack_require__.s = 7);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -5066,6 +5066,7 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 };
 exports.__esModule = true;
 var Immutable = __webpack_require__(0);
+var Debug = __webpack_require__(2);
 exports.status_mask_sign = 128;
 exports.status_mask_overflow = 64;
 exports.status_mask_breakpoint = 16;
@@ -5097,18 +5098,6 @@ exports.cpu_zero = {
     SR: 0,
     MEM: mem_zero
 };
-function cpu_log(cpu) {
-    function replacer(key, value) {
-        if (key == "MEM") {
-            return undefined;
-        }
-        else {
-            return value;
-        }
-    }
-    console.log(JSON.stringify(cpu));
-}
-exports.cpu_log = cpu_log;
 function cpu_reset(cpu) {
     return exports.cpu_zero;
 }
@@ -5117,25 +5106,23 @@ function cpu_increase_pc(cpu) {
     return __assign({}, cpu, { PC: cpu.PC + 1 });
 }
 exports.cpu_increase_pc = cpu_increase_pc;
-function cpu_branch(cpu, predicate, offset) {
+exports.cpu_branch = function (predicate, offset) { return function (cpu) {
     if (predicate) {
         return __assign({}, cpu, { PC: cpu.PC + offset });
     }
     else {
         return cpu_increase_pc(cpu);
     }
-}
-exports.cpu_branch = cpu_branch;
-function cpu_manipulate_sr(cpu, enable, mask) {
+}; };
+exports.cpu_manipulate_sr = function (enable, mask) { return function (cpu) {
     if (enable) {
         return __assign({}, cpu, { SR: cpu.SR | mask });
     }
     else {
         return __assign({}, cpu, { SR: cpu.SR & (~mask) });
     }
-}
-exports.cpu_manipulate_sr = cpu_manipulate_sr;
-function cpu_transfer(cpu, left, right) {
+}; };
+exports.cpu_transfer = function (left, right) { return function (cpu) {
     var register_value = left == "A" ? cpu.A : (left == "X" ? cpu.X : cpu.Y);
     if (right == "A") {
         return __assign({}, cpu, { A: register_value });
@@ -5149,13 +5136,11 @@ function cpu_transfer(cpu, left, right) {
     else {
         return __assign({}, cpu, { SP: register_value });
     }
-}
-exports.cpu_transfer = cpu_transfer;
-function cpu_push_stack(cpu, value) {
+}; };
+exports.cpu_push_stack = function (value) { return function (cpu) {
     var sp_prime = (cpu.SP - 1) % 0xFF;
     return __assign({}, cpu, { SP: cpu.SP + 1, MEM: cpu.MEM.set(cpu.SP, value) });
-}
-exports.cpu_push_stack = cpu_push_stack;
+}; };
 function cpu_pop_stack(cpu) {
     var sp_prime = (cpu.SP + 1) % 0xFF;
     return __assign({}, cpu, { SP: sp_prime, MEM: cpu.MEM.set(cpu.SP, 0) });
@@ -5165,7 +5150,7 @@ function cpu_peek_stack(cpu) {
     return cpu.MEM.get(cpu.SP);
 }
 exports.cpu_peek_stack = cpu_peek_stack;
-function cpu_retrieve_from_operand(cpu, operand) {
+exports.cpu_retrieve_from_operand = function (operand) { return function (cpu) {
     switch (operand.kind) {
         case "accumulator":
             return cpu.A;
@@ -5187,9 +5172,8 @@ function cpu_retrieve_from_operand(cpu, operand) {
         default:
             return 0;
     }
-}
-exports.cpu_retrieve_from_operand = cpu_retrieve_from_operand;
-function cpu_store_from_operand(cpu, operand, value) {
+}; };
+exports.cpu_store_from_operand = function (operand, value) { return function (cpu) {
     switch (operand.kind) {
         case "accumulator":
             return __assign({}, cpu, { A: value });
@@ -5200,8 +5184,38 @@ function cpu_store_from_operand(cpu, operand, value) {
         default:
             return cpu;
     }
+}; };
+function process_statement(state) {
+    var statement = state.AST.get(state.CPU.PC);
+    Debug.log_statement(state);
+    if (statement.kind == "operation") {
+        var operation = statement.operation;
+        switch (operation.opcode) {
+            case "INX":
+                return __assign({}, state, { CPU: cpu_increase_pc(__assign({}, state.CPU, { X: state.CPU.X + 1 })) });
+            default:
+                Debug.log("error", "Unrecognized opcode: " + JSON.stringify(operation.opcode));
+                return __assign({}, state, { flags: __assign({}, state.flags, { valid: false }) });
+        }
+    }
+    else if (statement.kind == "EOF") {
+        return __assign({}, state, { flags: __assign({}, state.flags, { eof: true }) });
+    }
 }
-exports.cpu_store_from_operand = cpu_store_from_operand;
+exports.process_statement = process_statement;
+function step(state) {
+    if (state.CPU.PC >= 0 && state.CPU.PC < state.AST.count()) {
+        Debug.log_statement(state);
+        var state_prime = process_statement(state);
+        Debug.cpu_log(state_prime.CPU);
+        return state_prime;
+    }
+    else {
+        Debug.log("error", "PC out of bounds of the AST!");
+        return __assign({}, state, { flags: __assign({}, state.flags, { valid: false }) });
+    }
+}
+exports.step = step;
 
 
 /***/ }),
@@ -5211,40 +5225,47 @@ exports.cpu_store_from_operand = cpu_store_from_operand;
 "use strict";
 
 exports.__esModule = true;
-exports.apu_zero = {};
+function log(level, message) {
+    switch (level) {
+        case "info":
+            console.log("INFO:   | " + message);
+            break;
+        case "warning":
+            console.log("WARNING | " + message);
+            break;
+        case "error":
+            console.log("ERROR:  | " + message);
+            break;
+        default:
+            log("error", "Unrecognized debug level specified: " + JSON.stringify(level));
+    }
+}
+exports.log = log;
+function log_statement(state) {
+    var pc = state.CPU.PC;
+    var statement = state.AST.get(state.CPU.PC);
+    console.log("PC: "
+        + pc
+        + " | "
+        + JSON.stringify(statement));
+}
+exports.log_statement = log_statement;
+function cpu_log(cpu) {
+    function replacer(key, value) {
+        if (key == "MEM") {
+            return undefined;
+        }
+        else {
+            return value;
+        }
+    }
+    console.log(JSON.stringify(cpu));
+}
+exports.cpu_log = cpu_log;
 
 
 /***/ }),
 /* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-exports.__esModule = true;
-var Immutable = __webpack_require__(0);
-exports.ast_zero = Immutable.List();
-
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-exports.__esModule = true;
-var Immutable = __webpack_require__(0);
-var CPU = __webpack_require__(1);
-var mem_zero = CPU.mem_zero_generator(10240, {
-    list: Immutable.List(),
-    count: 0
-});
-exports.ppu_zero = {
-    MEM: mem_zero
-};
-
-
-/***/ }),
-/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -5259,235 +5280,157 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 };
 exports.__esModule = true;
 var Immutable = __webpack_require__(0);
-var APU = __webpack_require__(2);
-var ASM = __webpack_require__(3);
 var CPU = __webpack_require__(1);
-var PPU = __webpack_require__(4);
+var mem_zero = CPU.mem_zero_generator(10240, {
+    list: Immutable.List(),
+    count: 0
+});
+exports.ppu_zero = {
+    CTRL: 0,
+    MASK: 0,
+    STATUS: 0,
+    OAMADDR: 0,
+    OAMDATA: 0,
+    SCROLL: 0,
+    ADDR: 0,
+    OAMDMA: 0,
+    MEM: mem_zero,
+    dirty_pixels: Immutable.List()
+};
+function ppu_store(ppu, index, value) {
+    return __assign({}, ppu, { MEM: ppu.MEM.set(index, value), dirty_pixels: ppu.dirty_pixels.push(index) });
+}
+exports.ppu_store = ppu_store;
+function ppu_retrieve(ppu, index) {
+    return ppu.MEM.get(index);
+}
+exports.ppu_retrieve = ppu_retrieve;
+function ppu_flush_dirty_pixels(ppu, context) {
+    var context_data = context.getImageData(0, 0, 256, 240);
+    ppu.dirty_pixels.forEach(function (index) {
+        context_data.data[index] = 0;
+    });
+    context.putImageData(context_data, 0, 0);
+}
+exports.ppu_flush_dirty_pixels = ppu_flush_dirty_pixels;
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+var APU = __webpack_require__(5);
+var ASM = __webpack_require__(6);
+var CPU = __webpack_require__(1);
+var PPU = __webpack_require__(3);
 var flags_zero = {
     apu_dirty: false,
     ppu_dirty: true,
-    eof: false
+    eof: false,
+    valid: true
 };
-var state_zero = {
-    ast: ASM.ast_zero,
-    cpu: CPU.cpu_zero,
-    ppu: PPU.ppu_zero,
-    apu: APU.apu_zero,
+exports.state_zero = {
+    AST: ASM.ast_zero,
+    CPU: CPU.cpu_zero,
+    PPU: PPU.ppu_zero,
+    APU: APU.apu_zero,
     flags: flags_zero
 };
-function log_statement(state) {
-    var pc = state.cpu.PC;
-    var statement = state.ast.get(state.cpu.PC);
-    console.log("PC: "
-        + pc
-        + " | "
-        + JSON.stringify(statement));
-}
-function process_statement(state) {
-    var statement = state.ast.get(state.cpu.PC);
-    log_statement(state);
-    if (statement.kind == "operation") {
-        var operation = statement.operation;
-        switch (operation.opcode) {
-            case "ADC": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = state.cpu.A + value;
-                if (result > 255) {
-                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result - 255 }), true, CPU.status_mask_carry), result == 0, CPU.status_mask_zero), (result & 128) > 0, CPU.status_mask_sign), (result & 128) > 0, CPU.status_mask_overflow)) });
-                }
-                else {
-                    return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result }), result == 0, CPU.status_mask_zero)) });
-                }
-            }
-            case "AND": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = state.cpu.A & value;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result }), result == 0, CPU.status_mask_zero), (result & 128) > 0, CPU.status_mask_sign)) });
-            }
-            case "ASL": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = (value << 1) % 255;
-                var carry = (value & 128) > 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result), carry, CPU.status_mask_carry), (result & 128) > 0, CPU.status_mask_sign), result == 0, CPU.status_mask_zero)) });
-            }
-            case "BCC":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BCS":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_carry) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BEQ":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_zero) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BIT": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = value & state.cpu.A;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, result == 0, CPU.status_mask_zero), (result & 64) > 0, CPU.status_mask_overflow), (result & 128) > 0, CPU.status_mask_sign)) });
-            }
-            case "BMI":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BNE":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_zero) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BPL":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_sign) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BRK":
-                return state;
-            case "BVC":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_overflow) == 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "BVS":
-                return __assign({}, state, { cpu: CPU.cpu_branch(state.cpu, (state.cpu.SR & CPU.status_mask_overflow) > 0, CPU.cpu_retrieve_from_operand(state.cpu, operation.operands)) });
-            case "CLC":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_carry)) });
-            case "CLI":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_interrupt)) });
-            case "CLV":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, false, CPU.status_mask_overflow)) });
-            case "CMP": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, (value & 128) > 0, CPU.status_mask_sign), value == state.cpu.A, CPU.status_mask_zero), value >= state.cpu.A, CPU.status_mask_carry)) });
-            }
-            case "CPX": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, (value & 128) > 0, CPU.status_mask_sign), value == state.cpu.X, CPU.status_mask_zero), value >= state.cpu.X, CPU.status_mask_carry)) });
-            }
-            case "CPY": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(state.cpu, (value & 128) > 0, CPU.status_mask_sign), value == state.cpu.Y, CPU.status_mask_zero), value >= state.cpu.Y, CPU.status_mask_carry)) });
-            }
-            case "DEC": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = value - 1;
-                var sign = (result & 64) > 0;
-                var zero = result == 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result % 255), sign, CPU.status_mask_sign), zero, CPU.status_mask_zero)) });
-            }
-            case "DEX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X - 1 })) });
-            case "DEY":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: state.cpu.Y - 1 })) });
-            case "EOR":
-                return state;
-            case "INC": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = value + 1;
-                var sign = (result & 64) > 0;
-                var zero = result == 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result % 255), sign, CPU.status_mask_sign), zero, CPU.status_mask_zero)) });
-            }
-            case "INX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: state.cpu.X + 1 })) });
-            case "INY":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: state.cpu.Y + 1 })) });
-            case "JMP":
-                return state;
-            case "JSR":
-                return state;
-            case "LDA":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { A: CPU.cpu_retrieve_from_operand(state.cpu, operation.operands) })) });
-            case "LDX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { X: CPU.cpu_retrieve_from_operand(state.cpu, operation.operands) })) });
-            case "LDY":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(__assign({}, state.cpu, { Y: CPU.cpu_retrieve_from_operand(state.cpu, operation.operands) })) });
-            case "LSR": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = (value >> 1) % 255;
-                var carry = (value & 128) > 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_store_from_operand(state.cpu, operation.operands, result), carry, CPU.status_mask_carry)) });
-            }
-            case "NOP":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(state.cpu) });
-            case "ORA": {
-                var value = CPU.cpu_retrieve_from_operand(state.cpu, operation.operands);
-                var result = value | state.cpu.A;
-                var sign = (result & 128) > 0;
-                var zero = result == 0;
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(CPU.cpu_manipulate_sr(__assign({}, state.cpu, { A: result }), sign, CPU.status_mask_sign), zero, CPU.status_mask_zero)) });
-            }
-            case "PHA":
-                return state;
-            case "PHP":
-                return state;
-            case "PLA":
-                return state;
-            case "PLP":
-                return state;
-            case "ROL":
-                return state;
-            case "ROR":
-                return state;
-            case "RTI":
-                return state;
-            case "RTS":
-                return state;
-            case "SBC":
-                return state;
-            case "SEC":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_carry)) });
-            case "SEI":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_manipulate_sr(state.cpu, true, CPU.status_mask_interrupt)) });
-            case "STA":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_store_from_operand(state.cpu, operation.operands, state.cpu.A)) });
-            case "STX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_store_from_operand(state.cpu, operation.operands, state.cpu.X)) });
-            case "STY":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_store_from_operand(state.cpu, operation.operands, state.cpu.Y)) });
-            case "TAX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "X")) });
-            case "TAY":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "A", "Y")) });
-            case "TSX":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "SP", "X")) });
-            case "TXA":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "X", "A")) });
-            case "TXS":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "X", "SP")) });
-            case "TYA":
-                return __assign({}, state, { cpu: CPU.cpu_increase_pc(CPU.cpu_transfer(state.cpu, "Y", "A")) });
-            default:
-                return state;
-        }
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+exports.apu_zero = {};
+
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+exports.__esModule = true;
+var Immutable = __webpack_require__(0);
+exports.ast_zero = Immutable.List();
+
+
+/***/ }),
+/* 7 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
     }
-    else if (statement.kind == "EOF") {
-        return __assign({}, state, { flags: __assign({}, state.flags, { eof: true }) });
-    }
-    return state;
-}
-function step(state) {
-    if (state.cpu.PC >= 0 && state.cpu.PC < state.ast.count()) {
-        log_statement(state);
-        var state_prime = process_statement(state);
-        CPU.cpu_log(state_prime.cpu);
-        return state_prime;
-    }
-    return state;
-}
-function step_all(state, context) {
-    var state_prime = state;
-    if (state_prime.flags.ppu_dirty) {
-        var image_data_1 = context.getImageData(0, 0, 256, 240);
-        image_data_1.data.forEach(function (value, index, array) {
-            image_data_1.data[index] = Math.floor(Math.random() * 256);
-        });
-        context.putImageData(image_data_1, 0, 0);
-    }
-    window.requestAnimationFrame(function () { step_all(state_prime, context); });
-}
+    return t;
+};
+exports.__esModule = true;
+var Immutable = __webpack_require__(0);
+var Debug = __webpack_require__(2);
+var State = __webpack_require__(4);
+var CPU = __webpack_require__(1);
+var PPU = __webpack_require__(3);
 document.body.onload = function () {
     var canvas = document.getElementById("canvas");
-    var context = canvas.getContext("2d");
+    if (canvas == null) {
+        Debug.log("warning", "Canvas could not be found");
+        initialize();
+    }
+    else {
+        initialize(canvas);
+    }
+};
+function initialize(canvas) {
     var seeded_mem = CPU.cpu_zero.MEM.set(0, 17);
     var seeded_ast = Immutable.List([
-        { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0 } } },
-        { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 1 } } },
-        { kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0 } } },
-        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 255 } } },
-        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 240 } } },
         { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "EOF" }
     ]);
-    var state = state_zero;
-    state.ast = seeded_ast;
-    state.cpu.MEM = seeded_mem;
-    CPU.cpu_log(state.cpu);
-    step_all(state, context);
-};
+    var state = __assign({}, State.state_zero, { AST: seeded_ast, CPU: __assign({}, State.state_zero.CPU, { MEM: seeded_mem }) });
+    Debug.cpu_log(state.CPU);
+    if (canvas) {
+        var context = canvas.getContext("2d");
+        run(state, context);
+    }
+    else {
+        run(state);
+    }
+}
+function run(state, context) {
+    var state_prime = CPU.step(state);
+    if (state_prime.flags.valid) {
+        if (!state_prime.flags.eof) {
+            if (state_prime.flags.ppu_dirty) {
+                if (context) {
+                    PPU.ppu_flush_dirty_pixels(state.PPU, context);
+                }
+            }
+            window.requestAnimationFrame(function () {
+                if (context) {
+                    run(state_prime, context);
+                }
+                else {
+                    run(state_prime);
+                }
+            });
+        }
+    }
+    else {
+        Debug.log("error", "State flagged as invalid!");
+    }
+}
 
 
 /***/ })
