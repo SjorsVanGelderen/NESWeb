@@ -5073,22 +5073,7 @@ exports.status_mask_breakpoint = 16;
 exports.status_mask_interrupt = 4;
 exports.status_mask_zero = 2;
 exports.status_mask_carry = 1;
-function mem_zero_generator(amount, accumulator) {
-    if (accumulator.count < amount) {
-        return mem_zero_generator(amount, {
-            list: accumulator.list.push(0),
-            count: accumulator.count + 1
-        });
-    }
-    else {
-        return accumulator.list;
-    }
-}
-exports.mem_zero_generator = mem_zero_generator;
-var mem_zero = mem_zero_generator(65535, {
-    list: Immutable.List(),
-    count: 0
-});
+var mem_zero = Immutable.Range(0, 65535).map(function (x) { return 0; }).toList();
 exports.cpu_zero = {
     A: 0,
     X: 0,
@@ -5113,8 +5098,13 @@ exports.cpu_manipulate_sr = function (enable, mask) { return function (cpu) {
     return __assign({}, cpu, { SR: enable ? (cpu.SR | mask) : (cpu.SR & (~mask)) });
 }; };
 exports.cpu_transfer = function (left, right) { return function (cpu) {
-    var register_value = left == "A" ? cpu.A : (left == "X" ? cpu.X : (left == "Y" ? cpu.Y :
-        cpu.SP));
+    var registers = {
+        "A": cpu.A,
+        "X": cpu.X,
+        "Y": cpu.Y,
+        "SP": cpu.SP
+    };
+    var register_value = registers[left];
     var result = right == "A" ? __assign({}, cpu, { A: register_value }) : (right == "X" ? __assign({}, cpu, { X: register_value }) : (right == "Y" ? __assign({}, cpu, { Y: register_value }) : __assign({}, cpu, { SP: register_value })));
     return result;
 }; };
@@ -5430,11 +5420,7 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 };
 exports.__esModule = true;
 var Immutable = __webpack_require__(0);
-var CPU = __webpack_require__(1);
-var mem_zero = CPU.mem_zero_generator(10240, {
-    list: Immutable.List(),
-    count: 0
-});
+var mem_zero = Immutable.Range(0, 10240).map(function (x) { return 0; }).toList();
 exports.ppu_zero = {
     CTRL: 0,
     MASK: 0,
@@ -5542,6 +5528,11 @@ document.body.onload = function () {
 function initialize(canvas) {
     var seeded_mem = CPU.cpu_zero.MEM.set(0, 17);
     var seeded_ast = Immutable.List([
+        { kind: "operation", operation: { opcode: "LDA", operands: { kind: "absolute", arguments: 0 } } },
+        { kind: "operation", operation: { opcode: "STA", operands: { kind: "absolute", arguments: 1 } } },
+        { kind: "operation", operation: { opcode: "INC", operands: { kind: "absolute", arguments: 0 } } },
+        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 255 } } },
+        { kind: "operation", operation: { opcode: "ADC", operands: { kind: "immediate", arguments: 240 } } },
         { kind: "operation", operation: { opcode: "INX", operands: { kind: "implied" } } },
         { kind: "EOF" }
     ]);

@@ -20,10 +20,7 @@ export type PPU = {
 }
 
 // 10 kibibytes of memory
-const mem_zero: Immutable.List<number> = CPU.mem_zero_generator(10240, {
-    list: Immutable.List<number>(),
-    count: 0
-})
+const mem_zero: Immutable.List<number> = Immutable.Range(0, 10240).map(x => 0).toList()
 
 // Base PPU state
 export const ppu_zero: PPU = {

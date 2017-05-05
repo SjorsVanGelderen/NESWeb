@@ -35,26 +35,7 @@ export type CPU = {
     but for now I'd like to avoid inaccuracy issues
     relating to floating point representations
 */
-export function mem_zero_generator(amount: number, accumulator: {
-        list: Immutable.List<number>,
-        count: number
-    }): Immutable.List<number> {
-    if(accumulator.count < amount) {
-        return mem_zero_generator(amount, {
-            list: accumulator.list.push(0),
-            count: accumulator.count + 1
-        })
-    }
-    else {
-        return accumulator.list
-    }
-}
-
-// Base MEM state
-const mem_zero: Immutable.List<number> = mem_zero_generator(65535, {
-    list: Immutable.List<number>(),
-    count: 0
-})
+const mem_zero: Immutable.List<number> = Immutable.Range(0, 65535).map(x => 0).toList()
 
 // Base CPU state
 export const cpu_zero: CPU = {
@@ -90,12 +71,15 @@ export const cpu_manipulate_sr = (enable: boolean, mask: number) => (cpu: CPU) =
 // Transfer a value between registers
 export const cpu_transfer =
     (left: "A" | "X" | "Y" | "SP", right: "A" | "X" | "Y" | "SP") => (cpu: CPU) => {
-    const register_value: number =
-        left == "A" ? cpu.A : (
-        left == "X" ? cpu.X : (
-        left == "Y" ? cpu.Y : 
-                      cpu.SP
-        ))
+    
+    const registers = {
+        "A":  cpu.A,
+        "X":  cpu.X,
+        "Y":  cpu.Y,
+        "SP": cpu.SP
+    }
+
+    const register_value: number = registers[left]
 
     const result: CPU =
         right == "A" ? { ...cpu, A:  register_value } : (
