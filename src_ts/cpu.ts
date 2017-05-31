@@ -81,14 +81,14 @@ export const cpu_transfer =
 
     const register_value: number = registers[left]
 
-    const result: CPU =
-        right == "A" ? { ...cpu, A:  register_value } : (
-        right == "X" ? { ...cpu, X:  register_value } : (
-        right == "Y" ? { ...cpu, Y:  register_value } : 
-                       { ...cpu, SP: register_value }
-        ))
-    
-    return result
+    const results = {
+        "A":  { ...cpu, A:  register_value },
+        "X":  { ...cpu, X:  register_value },
+        "Y":  { ...cpu, Y:  register_value },
+        "SP": { ...cpu, SP: register_value }
+    }
+
+    return results[right]
 }
 
 // Push a value onto the stack
